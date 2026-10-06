@@ -1,0 +1,23 @@
+// Bucles y contadores. Cada 100 monedas dan una vida extra; cada Goomba quita una.
+// Los mundos se juegan en orden: 1-1 y luego 1-2.
+world 1-1 {
+  coin vidas = 3
+  coin monedero = 0
+  coin intento = 0
+  bounce vidas > 0 {
+    power_up intento
+    power_up monedero by 35
+    question monedero >= 100 {
+      damage monedero by 100
+      power_up vidas
+      wahoo("  ¡1-UP! Vidas: ", vidas)
+    }
+    damage vidas
+    wahoo("Intento ", intento, ": un Goomba atrapa a Mario. Quedan ", vidas, " vidas")
+  }
+  wahoo("GAME OVER tras ", intento, " intentos")
+}
+
+world 1-2 {
+  wahoo("...pero el mundo 1-2 siempre se juega después del 1-1.")
+}

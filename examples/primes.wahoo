@@ -1,0 +1,26 @@
+// A pipe that answers with a switch: star (yes) or goomba (no).
+pipe is_prime(n: coins) -> switch {
+  question n < 2 {
+    flag goomba
+  }
+  coin d = 2
+  bounce d * d <= n {
+    question n % d == 0 {
+      flag goomba
+    }
+    power_up d
+  }
+  flag star
+}
+
+world 1-1 {
+  coin found = 0
+  coin n = 2
+  bounce found < 10 {
+    question is_prime(n) {
+      power_up found
+      wahoo("Power star #", found, ": ", n)
+    }
+    power_up n
+  }
+}

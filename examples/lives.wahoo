@@ -1,0 +1,23 @@
+// Loops and counters. Every 100 coins give an extra life; every Goomba takes one.
+// Worlds are played in order: 1-1, then 1-2.
+world 1-1 {
+  coin lives = 3
+  coin purse = 0
+  coin attempt = 0
+  bounce lives > 0 {
+    power_up attempt
+    power_up purse by 35
+    question purse >= 100 {
+      damage purse by 100
+      power_up lives
+      wahoo("  1-UP! Lives: ", lives)
+    }
+    damage lives
+    wahoo("Attempt ", attempt, ": a Goomba got Mario. Lives left: ", lives)
+  }
+  wahoo("GAME OVER after ", attempt, " attempts")
+}
+
+world 1-2 {
+  wahoo("...but world 1-2 is always played after 1-1.")
+}

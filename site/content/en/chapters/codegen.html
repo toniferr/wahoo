@@ -1,0 +1,148 @@
+<!--meta
+{
+  "slug": "codegen",
+  "title": "Code generation",
+  "chain": "Generate",
+  "headline": "From meaning to instructions",
+  "dek": "The checked program says what must happen; the code generator decides how, in the vocabulary of the target machine. For WebAssembly that machine is a stack machine: expressions become sequences of pushes and operations, and loops become blocks you can only jump out of or back to the top of.",
+  "era": "1957 – today",
+  "people": ["Gregory Chaitin", "Ron Cytron", "Kenneth Zadeck", "Chris Lattner"],
+  "concepts": ["Intermediate representations", "Stack machines", "Lowering control flow", "Memory layout", "Register allocation"]
+}
+-->
+
+<p>By the time a Wahoo program reaches the code generator, everything about it is known: each name is a numbered slot, each expression has a type, each pipe has a signature. What is left is translation into a language with far fewer ideas. WebAssembly has no <code>question</code>, no <code>bounce</code>, no <code>run</code>, no text and no booleans: it has 32-bit integers, local slots, a linear array of bytes, and about a dozen ways of moving between instructions. Code generation is the art of saying rich things with a poor vocabulary.</p>
+
+<h2>Intermediate representations</h2>
+
+<p>Real compilers rarely jump straight from a syntax tree to machine code. They pass through one or more <strong>intermediate representations</strong> (IRs), each closer to the machine than the last. The classic one is <em>three-address code</em>, in which every instruction has at most one operator:</p>
+
+<pre class="code-block"><code>// a + b * 2
+t1 = b * 2
+t2 = a + t1</code></pre>
+
+<p>Since the late 1980s most optimising compilers use a refinement of it, <strong>static single assignment</strong> form (SSA), in which every variable is assigned exactly once; a variable that changes in a loop is split into versions. SSA makes many optimisations simple, because the definition that reaches each use is obvious. LLVM, started by Chris Lattner in 2000, turned a well-designed SSA IR into a public interface: Clang, rustc, Swift, Julia and Zig all translate their languages into LLVM IR and let one shared back end do the rest. Without such a middle, <em>M</em> languages and <em>N</em> processors need <em>M × N</em> compilers; with it, <em>M + N</em>.</p>
+
+<p>Wahoo's own IR is the typed HIR from <a href="@ch:semantics">chapter 03</a>, and its target, WebAssembly, is itself an IR of sorts: the browser compiles it once more to the real processor (<a href="@ch:runtime">chapter 06</a>).</p>
+
+<h2>Stack machines</h2>
+
+<p>In a <strong>stack machine</strong>, instructions take their operands from the top of a stack and push their result back. <code>i32.const 2</code> pushes a 2; <code>i32.mul</code> pops two numbers and pushes their product. Generating code for an expression is then a single walk of its tree in <em>post-order</em>: first the code for the operands, left to right, then the operator.</p>
+
+<div class="code-pair">
+<pre class="wahoo">a + b * 2</pre>
+<pre class="wat">local.get $a     ;; stack: a
+local.get $b     ;; stack: a b
+i32.const 2      ;; stack: a b 2
+i32.mul          ;; stack: a (b*2)
+i32.add          ;; stack: a+b*2</pre>
+</div>
+
+<p>No temporary names, no registers to choose: the stack holds the intermediate results. That is why stack machines are popular as targets for virtual machines (the JVM, .NET's CIL, CPython's bytecode and WebAssembly all are), and why the expression part of a code generator for them fits in a few dozen lines.</p>
+
+<figure class="demo" data-demo="codegen/stack">
+  <figcaption>The real compiler turns the expression into the body of a pipe <code>f(a, b, c)</code>, with the optimizer off, and the figure runs the WebAssembly it produced, one instruction at a time. The highlighted line is the instruction just executed and the column on the right is the operand stack, top at the top. Comparisons push 1 or 0; with <code>and</code> and <code>or</code> watch the <code>if</code> skip the right-hand side when the left one already decides the answer.</figcaption>
+</figure>
+
+<h2>Lowering control flow</h2>
+
+<p>Processors do not have <code>if</code> or <code>while</code>, only conditional jumps. WebAssembly is a little more structured, deliberately: it has blocks, loops and <code>if</code>, and branches may only leave an enclosing block (<code>br</code> to a <code>block</code>) or go back to the top of an enclosing loop (<code>br</code> to a <code>loop</code>). There is no <code>goto</code> to an arbitrary address, which makes it possible to validate a module in one quick pass and to compile it safely. A branch names its target by depth: <code>br 0</code> is the innermost enclosing construct, <code>br 1</code> the next one out.</p>
+
+<p>Here is what Wahoo's compiler actually emits for a <code>bounce</code> loop (the <code>;;</code> comments with line numbers are added by the compiler, to tie each instruction to its source):</p>
+
+<div class="code-pair wide">
+<pre class="wahoo">world 1-1 {
+  coin lives = 3
+  bounce lives &gt; 0 {
+    wahoo(lives)
+    damage lives
+  }
+}</pre>
+<pre class="wat">(func $world_1_1
+  (local $lives i32)
+  ;; 2: coin lives = 3
+  i32.const 3
+  local.set $lives
+  ;; 3: bounce lives &gt; 0 {
+  block
+    loop
+      local.get $lives
+      i32.const 0
+      i32.gt_s
+      i32.eqz
+      br_if 1          ;; condition false: leave the block
+      ;; 4: wahoo(lives)
+      local.get $lives
+      call $print_coins
+      call $print_newline
+      ;; 5: damage lives
+      local.get $lives
+      i32.const 1
+      i32.sub
+      local.set $lives
+      br 0             ;; back to the top of the loop
+    end
+  end
+)</pre>
+</div>
+
+<p>The pattern is always the same: a <code>block</code> to have somewhere to escape to, a <code>loop</code> to have somewhere to come back to, the condition negated with <code>i32.eqz</code> so that <code>br_if 1</code> leaves when it is false, the body, and an unconditional <code>br 0</code>. Notice <code>damage lives</code>: by now it is just <code>lives = lives - 1</code>, the desugaring from the checker. A <code>run i from a to b</code> loop is lowered the same way, with a hidden local holding <code>b</code> so that it is evaluated only once.</p>
+
+<p><code>question</code> maps onto WebAssembly's own <code>if</code>/<code>else</code>/<code>end</code>. The short-circuit operators use it too: <code>a and b</code> becomes “compute <code>a</code>; if it is true, compute <code>b</code>, else push 0”, an <code>if</code> that leaves a value on the stack (<code>if (result i32)</code>). That is how <code>goomba and explode()</code> never calls <code>explode</code>.</p>
+
+<h2>Functions and calls</h2>
+
+<p>Each pipe becomes a WebAssembly function whose parameters are its first locals. A call pushes the arguments and executes <code>call</code>; the engine takes care of the call stack. <code>flag</code> becomes <code>return</code>. One detail shows how strict WebAssembly is:</p>
+
+<div class="code-pair wide">
+<pre class="wahoo">pipe max(a: coins, b: coins) -&gt; coins {
+  question a &gt; b {
+    flag a
+  } else {
+    flag b
+  }
+}</pre>
+<pre class="wat">(func $max (param $a i32) (param $b i32) (result i32)
+  ;; 2: question a &gt; b {
+  local.get $a
+  local.get $b
+  i32.gt_s
+  if
+    ;; 3: flag a
+    local.get $a
+    return
+  else
+    ;; 5: flag b
+    local.get $b
+    return
+  end
+  unreachable
+)</pre>
+</div>
+
+<p>Both branches return, so the end of the function can never be reached. But the validator does not reason about that: it sees an <code>if</code> that leaves nothing on the stack, followed by the end of a function that must return an <code>i32</code>, and would reject the module. The final <code>unreachable</code> instruction tells it that control never gets there. Wahoo's checker has already proved it (<a href="@ch:semantics">chapter 03</a>), so the code generator can say so safely.</p>
+
+<h2>Data in memory</h2>
+
+<p>Numbers and switches fit in a stack slot, but texts do not. WebAssembly gives each module a <strong>linear memory</strong>, a plain array of bytes, and the compiler decides how to lay data out in it. Wahoo stores every text literal once, from address 16 onwards, as a four-byte length followed by its UTF-8 bytes, padded to a multiple of four. A <code>text</code> value is simply the address of its length. The bytes are placed there by a <em>data segment</em>, which the engine copies into memory when the module starts:</p>
+
+<pre class="wat">(data (i32.const 16) "\04\00\00\00fib(\04\00\00\00) = ")</pre>
+
+<p>Two identical literals are stored once, so they get the same address, and comparing addresses is comparing texts. The first sixteen bytes are left empty so that no text ever lives at address 0.</p>
+
+<p>Printing is not something WebAssembly can do on its own: a module can only compute and touch its own memory. Everything else is <strong>imported</strong> from the host. Wahoo modules import four functions, <code>print_coins</code>, <code>print_switch</code>, <code>print_text</code> and <code>print_newline</code>, and export two things, their memory (so the host can read texts) and <code>main</code>, which plays every world in order. In the browser, the host is a few lines of JavaScript; on the command line, a few lines of Rust.</p>
+
+<h2>What real back ends also do</h2>
+
+<p>Compiling to a stack machine skips the two hardest jobs of a back end for real processors. <strong>Instruction selection</strong> chooses, among the many instruction sequences that compute the same thing, a cheap one (x86 can multiply by 5 with a single address computation, <code>lea</code>). <strong>Register allocation</strong> decides which values live in the processor's handful of registers and which must be <em>spilled</em> to memory. In 1981 Gregory Chaitin showed how to treat it as colouring a graph, with one node per value and an edge between values alive at the same time: <em>k</em> registers means <em>k</em> colours. Graph colouring is NP-complete, so real allocators rely on good heuristics, and fast ones (in JITs) on simpler schemes such as linear scan. When a browser compiles a Wahoo module, it is the browser's engine that does this work.</p>
+
+<section class="references">
+  <h2>References</h2>
+  <ol>
+    <li>G. J. Chaitin (1982). “Register Allocation &amp; Spilling via Graph Coloring”. <em>Proceedings of the SIGPLAN Symposium on Compiler Construction</em>.</li>
+    <li>R. Cytron, J. Ferrante, B. K. Rosen, M. N. Wegman and F. K. Zadeck (1991). “Efficiently Computing Static Single Assignment Form and the Control Dependence Graph”. <em>ACM Transactions on Programming Languages and Systems</em>, 13(4).</li>
+    <li>C. Lattner and V. Adve (2004). “LLVM: A Compilation Framework for Lifelong Program Analysis &amp; Transformation”. <em>Proceedings of CGO</em>.</li>
+    <li>A. Haas, A. Rossberg, D. L. Schuff, B. L. Titzer et al. (2017). “Bringing the Web up to Speed with WebAssembly”. <em>Proceedings of PLDI</em>.</li>
+    <li>WebAssembly Community Group (2019). <em>WebAssembly Core Specification</em>, W3C Recommendation.</li>
+  </ol>
+</section>

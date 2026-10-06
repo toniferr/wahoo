@@ -1,0 +1,154 @@
+{
+  "site_title": "Wahoo! How a compiler works",
+  "site_short": "Wahoo",
+  "site_description": "An interactive guide to compilers and interpreters, with Wahoo, a tiny Mushroom Kingdom language whose real compiler (written in Rust, targeting WebAssembly) runs in your browser.",
+  "nav": {
+    "skip": "Skip to content",
+    "main": "Main",
+    "chapters": "Chapters",
+    "playground": "Playground",
+    "reference": "Language",
+    "timeline": "History",
+    "lang": "Language",
+    "theme": "Switch between light and dark theme"
+  },
+  "chapter": {
+    "label": "Chapter",
+    "era": "Era",
+    "people": "Key people",
+    "concepts": "Key ideas",
+    "toc": "In this chapter",
+    "prevnext": "Previous and next chapter",
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "playground": {
+    "slug": "playground",
+    "dek_short": "Write Wahoo, see every phase, run it."
+  },
+  "reference": {
+    "slug": "language"
+  },
+  "timeline": {
+    "slug": "history",
+    "kicker": "History",
+    "all": "All",
+    "filter": "Filter by chapter",
+    "read": "Read chapter"
+  },
+  "footer": {
+    "text": "Text, figures and compiler handmade (with help from Claude Code): no frameworks, no trackers. Wahoo is a fan-made teaching language; Mario and the Mushroom Kingdom belong to Nintendo, and no game assets are used here.",
+    "source": "Source code on GitHub",
+    "siblings": "Sister sites: <a href=\"https://toniferr.github.io/math-of-ai/\">Math of AI</a> · <a href=\"https://toniferr.github.io/math-of-quantum/\">Math of Quantum</a> · <a href=\"https://toniferr.github.io/calculus-computing/\">Calculus × Computing</a>"
+  },
+  "examples": {
+    "hello": "Hello, world 1-1",
+    "lives": "Lives and coins (loops)",
+    "mario-luigi": "Mario & Luigi (FizzBuzz)",
+    "fib": "Fibonacci (recursion)",
+    "primes": "Power stars (primes)",
+    "collatz": "Collatz jumps",
+    "errors": "A level full of errors"
+  },
+  "demos": {
+    "core": { "error": "This figure could not start. Reload the page to try again." },
+    "run": {
+      "pit": "You fell into a pit: division by zero.",
+      "overflow": "Too many coins: -2147483648 / -1 doesn't fit in 32 bits.",
+      "stack": "Too many pipes deep: stack overflow (endless recursion?).",
+      "time": "Time's up! The level ran for more than 3 seconds (endless loop?).",
+      "output": "Stopped after 5,000 lines of output.",
+      "other": "The program stopped: {msg}",
+      "done": "Course clear!",
+      "running": "Running…"
+    },
+    "tokens": { "keyword": "keyword", "name": "name", "number": "number", "text": "text", "symbol": "symbol", "eof": "end" },
+    "ast": { "label": "Syntax tree" },
+    "bytes": {
+      "section": "Section",
+      "offset": "Offset",
+      "size": "Bytes",
+      "what": "What it holds",
+      "header": "header",
+      "total": "{n} bytes in total. Each colour is one section; a bold left edge marks where it starts.",
+      "sec": {
+        "header": "the magic number \\0asm and the format version (1)",
+        "type": "function signatures, each stored once",
+        "import": "what the host must provide: the four print functions",
+        "function": "the signature of each function defined here",
+        "memory": "one linear memory of 64 KiB pages",
+        "export": "what the host can reach: memory and main",
+        "code": "the bodies: locals and instructions",
+        "data": "the bytes of every text literal",
+        "custom": "the \"name\" section: function and local names for tools"
+      }
+    },
+    "pg": {
+      "example": "Example",
+      "shared": "Shared link",
+      "optimize": "Optimizer",
+      "share": "Share",
+      "run": "▶ Run",
+      "editor": "Wahoo source code",
+      "loading": "Loading the compiler…",
+      "keys": "Ctrl+Enter runs. Click an error to jump to it.",
+      "tab": { "output": "Output", "tokens": "Tokens", "ast": "Syntax tree", "wat": "WebAssembly", "bytes": "Bytes" },
+      "size": "{n} bytes of Wasm",
+      "stats": "folded {folded}, branches removed {branches}, dead statements {dead}",
+      "fixFirst": "Fix the errors first: the compiler only produces code for a correct program.",
+      "pressRun": "Press Run (or Ctrl+Enter) to play the level.",
+      "cantRun": "The program has errors, so there is nothing to run yet.",
+      "copied": "Link copied.",
+      "inAddressBar": "The link is in the address bar.",
+      "loadError": "The compiler could not be loaded (it needs a browser with WebAssembly)."
+    },
+    "home": {
+      "code": "// Edit me and press Run.\nworld 1-1 {\n  coin purse = 0\n  run i from 1 to 5 {\n    power_up purse by 10\n    wahoo(\"Block \", i, \": \", purse, \" coins\")\n  }\n  question purse >= 50 {\n    wahoo(\"1-UP!\")\n  }\n}\n",
+      "hint": "This is the real compiler, running in your browser."
+    },
+    "exec": {
+      "pick": "Choose a language",
+      "when": { "build": "before running", "run": "while running", "hw": "hardware" },
+      "kind": {
+        "aot": "Compiled ahead of time.",
+        "jit": "Bytecode plus a just-in-time compiler.",
+        "vm": "Compiled to bytecode, run by a virtual machine.",
+        "interp": "Interpreted.",
+        "trans": "Transpiled to another language."
+      }
+    },
+    "lex": {
+      "code": "// Comments and spaces vanish.\ncoin lives = 3\nquestion lives <= 0 {\n  wahoo(\"Game over\")\n}\n",
+      "stats": "{chars} characters → {tokens} tokens"
+    },
+    "parse": {
+      "input": "Expression",
+      "reads": "The parser reads it as {expr}"
+    },
+    "sem": { "pick": "Choose a mistake" },
+    "cg": {
+      "input": "Expression with a, b and c",
+      "code": "WebAssembly",
+      "stack": "Operand stack",
+      "step": "Step",
+      "run": "To the end",
+      "reset": "Reset",
+      "noCalls": "This figure can't step into calls.",
+      "empty": "empty",
+      "result": "Result: {v}, after {n} instructions.",
+      "progress": "Instruction {i} of {n}."
+    },
+    "opt": {
+      "code": "pipe seconds(minutes: coins) -> coins {\n  flag minutes * 60\n}\n\nworld 1-1 {\n  coin time = 2 * 60 + 30\n  question 1 < 2 {\n    wahoo(\"Time left: \", time + 0)\n  } else {\n    wahoo(\"never shown\")\n  }\n  bounce goomba {\n    wahoo(\"never runs\")\n  }\n  wahoo(seconds(3) * 1)\n}\n",
+      "before": "Without optimizer",
+      "after": "With optimizer",
+      "work": "What it did",
+      "off": "Optimizer off",
+      "on": "Optimizer on",
+      "size": "{n} instr. · {b} bytes"
+    },
+    "rt": {
+      "code": "world 1-1 {\n  wahoo(\"Wahoo!\", 1 + 2)\n}\n"
+    }
+  }
+}

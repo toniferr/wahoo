@@ -1,0 +1,9 @@
+[package]
+name = "wahoo"
+description = "A compiler for Wahoo, a tiny Mario-flavoured language, to WebAssembly"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]

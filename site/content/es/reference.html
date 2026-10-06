@@ -1,0 +1,140 @@
+<!--meta
+{
+  "kicker": "El lenguaje",
+  "title": "Wahoo en cinco minutos",
+  "dek": "Todo lo que hay que saber de Wahoo, en una página: mundos, monedas, preguntas, bucles, tuberías, y qué significa cada error."
+}
+-->
+
+<p>Wahoo es un lenguaje pequeño, con tipos estáticos, tres tipos, recursión, bucles y ámbito de bloque. Sus palabras clave vienen del Reino Champiñón (y están en inglés, como en el juego), pero por debajo es un lenguaje imperativo corriente. Todos los fragmentos de esta página pueden pegarse en el <a href="@playground">playground</a>.</p>
+
+<h2>Un primer programa</h2>
+
+<pre class="wahoo">// Los comentarios van de // al final de la línea.
+world 1-1 {
+  coin vidas = 3
+  wahoo("Mario tiene ", vidas, " vidas")
+}</pre>
+
+<p>Un programa es una lista de <strong>mundos</strong> (<code>world</code>) y <strong>tuberías</strong> (<code>pipe</code>), en cualquier orden. Las sentencias acaban al final de la línea; no hay puntos y coma.</p>
+
+<h2>Mundos</h2>
+
+<p><code>world 1-1 { … }</code> es donde empieza la ejecución. Un programa puede tener varios mundos, y se juegan en el orden de su número: <code>1-1</code>, <code>1-2</code>, … <code>2-1</code>, sea cual sea su orden en el fichero. Cada mundo es un nivel aparte: las variables declaradas en uno no se ven en otro. Un <code>flag</code> sin valor termina antes el mundo actual.</p>
+
+<h2>Tipos y valores</h2>
+
+<table class="compare">
+  <thead><tr><th>Tipo</th><th>Valores</th><th>Equivale a</th></tr></thead>
+  <tbody>
+    <tr><td><code>coins</code></td><td>enteros de −2147483648 a 2147483647; se admite <code>1_000</code></td><td><code>int</code> (32 bits, da la vuelta al desbordar)</td></tr>
+    <tr><td><code>switch</code></td><td><code>star</code> (verdadero) y <code>goomba</code> (falso)</td><td><code>bool</code></td></tr>
+    <tr><td><code>text</code></td><td><code>"entre comillas dobles"</code>, con <code>\n \t \" \\</code></td><td>un literal de cadena inmutable</td></tr>
+  </tbody>
+</table>
+
+<p>Los textos se pueden guardar, pasar a las pipes, comparar con <code>==</code> e imprimir, pero no unir: para imprimir varias cosas juntas, pásalas todas a <code>wahoo(…)</code>.</p>
+
+<h2>Monedas: variables</h2>
+
+<pre class="wahoo">coin vidas = 3                 // el tipo (coins) se infiere
+coin nombre: text = "Luigi"    // o se escribe
+vidas = vidas + 1              // asignación: sin `coin`
+power_up vidas                 // vidas = vidas + 1
+power_up vidas by 10           // vidas = vidas + 10
+damage vidas                   // vidas = vidas - 1
+damage vidas by 2              // vidas = vidas - 2</pre>
+
+<p>Una <code>coin</code> vive hasta el final del bloque (<code>{ … }</code>) donde se declara. Un bloque interior puede declarar una moneda con el mismo nombre, que oculta a la exterior hasta que el bloque termina. Declarar el mismo nombre dos veces en un bloque es un error. Los nombres empiezan por una letra o <code>_</code>; una moneda cuyo nombre empieza por <code>_</code> nunca se avisa como no usada.</p>
+
+<h2>Operadores</h2>
+
+<p>De mayor a menor fuerza de ligadura:</p>
+
+<table class="compare">
+  <thead><tr><th>Operadores</th><th>Tipos de los operandos</th><th>Resultado</th></tr></thead>
+  <tbody>
+    <tr><td><code>-x</code></td><td>coins</td><td>coins</td></tr>
+    <tr><td><code>*  /  %</code></td><td>coins</td><td>coins (la división trunca hacia cero)</td></tr>
+    <tr><td><code>+  -</code></td><td>coins</td><td>coins</td></tr>
+    <tr><td><code>&lt;  &lt;=  &gt;  &gt;=</code></td><td>coins</td><td>switch</td></tr>
+    <tr><td><code>==  !=</code></td><td>dos valores del mismo tipo</td><td>switch</td></tr>
+    <tr><td><code>not</code></td><td>switch</td><td>switch</td></tr>
+    <tr><td><code>and</code></td><td>switch</td><td>switch (el lado derecho solo se evalúa si hace falta)</td></tr>
+    <tr><td><code>or</code></td><td>switch</td><td>switch (el lado derecho solo se evalúa si hace falta)</td></tr>
+  </tbody>
+</table>
+
+<p>Los operadores del mismo nivel se agrupan por la izquierda (<code>10 - 4 - 3</code> es <code>3</code>). Las comparaciones no se pueden encadenar: escribe <code>a &lt; b and b &lt; c</code>.</p>
+
+<h2>Preguntas</h2>
+
+<pre class="wahoo">question vidas &gt; 3 {
+  wahoo("de sobra")
+} else question vidas &gt; 0 {
+  wahoo("con cuidado")
+} else {
+  wahoo("game over")
+}</pre>
+
+<p>La condición debe ser un <code>switch</code>; las llaves son siempre obligatorias.</p>
+
+<h2>Bucles</h2>
+
+<pre class="wahoo">bounce vidas &gt; 0 {        // mientras se cumpla la condición
+  damage vidas
+}
+
+run i from 1 to 5 {       // i = 1, 2, 3, 4, 5 (ambos extremos incluidos)
+  wahoo(i)
+}</pre>
+
+<p>En un bucle <code>run</code> los dos límites se calculan una vez, antes de la primera vuelta, y el contador es una moneda nueva que solo existe dentro del bucle. Si el inicio es mayor que el final, el cuerpo no se ejecuta nunca.</p>
+
+<h2>Tuberías</h2>
+
+<pre class="wahoo">pipe fib(n: coins) -&gt; coins {
+  question n &lt; 2 {
+    flag n
+  }
+  flag fib(n - 1) + fib(n - 2)
+}
+
+pipe saluda(nombre: text) {     // sin `-&gt;`: no devuelve nada
+  wahoo("Hola, ", nombre)
+}</pre>
+
+<p>Una <strong>pipe</strong> es una función. Hay que escribir los parámetros y el tipo devuelto; <code>flag valor</code> devuelve, y una pipe con tipo devuelto debe llegar a un <code>flag</code> por todos los caminos. Las pipes pueden llamarse antes de su definición y pueden llamarse a sí mismas. Una pipe sin tipo devuelto se llama como sentencia, en su propia línea: <code>saluda("Peach")</code>; una con tipo devuelto también puede llamarse así, y su valor se descarta.</p>
+
+<h2>Imprimir</h2>
+
+<p><code>wahoo(a, b, …)</code> imprime sus argumentos uno tras otro, sin separadores, y luego un salto de línea. Los switches se imprimen como <code>star</code> y <code>goomba</code>. <code>wahoo</code> es una sentencia: no tiene valor, y ninguna pipe puede llamarse <code>wahoo</code>.</p>
+
+<h2>Errores y avisos</h2>
+
+<p>El compilador informa de todos los problemas que encuentra, con la línea, la columna y, a menudo, una pista. El código indica qué fase lo encontró. Con <code>--lang es</code> (o un <code>$LANG</code> en español) los mensajes salen en español.</p>
+
+<table class="compare">
+  <thead><tr><th>Código</th><th>Fase</th><th>Significado</th></tr></thead>
+  <tbody>
+    <tr><td>E001–E005</td><td><a href="@ch:lexing">lexer</a></td><td>carácter inesperado, texto sin cerrar, escape desconocido, número demasiado grande, número mal formado</td></tr>
+    <tr><td>E101–E105</td><td><a href="@ch:parsing">parser</a></td><td>se esperaba algo que no está, comparación encadenada, una expresión solitaria, <code>else</code> sin <code>question</code>, demasiados errores</td></tr>
+    <tr><td>E201–E218</td><td><a href="@ch:semantics">comprobador</a></td><td>no hay mundo, duplicados, nombres, pipes o tipos desconocidos, tipos que no encajan, número de argumentos erróneo, falta un <code>flag</code>, valores de <code>flag</code> fuera de lugar</td></tr>
+    <tr><td>W301–W303</td><td>comprobador</td><td>avisos: moneda sin usar, código inalcanzable, división entre cero</td></tr>
+  </tbody>
+</table>
+
+<p>Un programa con avisos pero sin errores se compila y se ejecuta. Al ejecutar, tres cosas terminan antes un nivel: la división entre cero, una división que desborda (<code>-2147483648 / -1</code>) y una recursión demasiado profunda. Un programa que no termina se detiene a los tres segundos en el navegador.</p>
+
+<h2>En la línea de órdenes</h2>
+
+<p>El compilador también es una herramienta de línea de órdenes, construida con el mismo código Rust:</p>
+
+<pre class="code-block"><code>cargo install --path crates/wahoo-cli
+
+wahoo run examples/es/fib.wahoo          # compila y ejecuta (con el intérprete wasmi)
+wahoo build examples/es/fib.wahoo        # escribe examples/es/fib.wasm
+wahoo wat examples/es/fib.wahoo          # muestra el WebAssembly en texto
+wahoo tokens examples/es/fib.wahoo       # lo que ve el lexer
+wahoo ast examples/es/fib.wahoo          # lo que construye el parser
+wahoo check examples/es/errors.wahoo --lang es</code></pre>

@@ -1,0 +1,117 @@
+<!--meta
+{
+  "slug": "semantics",
+  "title": "Semantic analysis",
+  "chain": "Check",
+  "headline": "Does it make sense?",
+  "dek": "A program can be perfectly grammatical and still meaningless: a name nobody declared, a number used as a condition, a function that forgets to return. The checker resolves every name and gives every expression a type, so that these mistakes are caught before the program ever runs.",
+  "era": "1958 – today",
+  "people": ["Roger Hindley", "Robin Milner", "Henry Gordon Rice", "Vladimir Levenshtein"],
+  "concepts": ["Scopes and symbol tables", "Type checking", "Type inference", "Desugaring", "Conservative analysis"]
+}
+-->
+
+<p>In 1957 Noam Chomsky offered a sentence to show that grammar and meaning are different things: <em>“Colourless green ideas sleep furiously.”</em> Every word is in its place, and it means nothing. Programs have the same problem. <code>wahoo(lifes)</code> parses beautifully, but if the program only ever declared <code>lives</code>, it asks for something that does not exist. <code>question lives { … }</code> is grammatical, but a question block needs a yes-or-no answer and <code>lives</code> is a number.</p>
+
+<p>The phase that catches these is <strong>semantic analysis</strong>. In Wahoo it is <code>checker.rs</code>, and its output is no longer a syntax tree but a smaller, stricter representation (the <em>HIR</em>) in which every name has been replaced by the thing it refers to and every expression carries its type. The optimizer and the code generator only ever see that form, and they can trust it.</p>
+
+<h2>Names and scopes</h2>
+
+<p>The first question about a name is <em>which</em> thing it means. Wahoo, like almost every modern language, uses <strong>lexical scoping</strong>: a name refers to the nearest enclosing declaration in the text of the program. A <code>coin</code> declared inside a <code>question</code> block lives until that block's <code>}</code>; inside it, it may <em>shadow</em> a variable of the same name declared outside.</p>
+
+<pre class="wahoo">world 1-1 {
+  coin x = 1
+  question star {
+    coin x = "inner"   // a different x, of a different type
+    wahoo(x)           // inner
+  }
+  wahoo(x)             // 1
+}</pre>
+
+<p>The checker keeps a <strong>symbol table</strong> as a stack of scopes: entering a block pushes an empty scope, a <code>coin</code> adds a name to the top one, leaving the block pops it, and looking a name up searches from the top down. Popping is also the right moment to notice a variable that was declared and never read, which Wahoo reports as a warning.</p>
+
+<aside class="note">The alternative, <strong>dynamic scoping</strong>, resolves a name by looking at who called whom at run time. Early Lisps worked that way, as do Emacs Lisp by default and Bash's <code>local</code> variables. It makes a function's meaning depend on its callers, which is why most languages abandoned it.</aside>
+
+<p>Pipes are handled in two passes. The first collects the signature of every pipe in the file (name, parameter types, return type); the second checks the bodies. That is what lets a pipe call one defined further down, or call itself: by the time any body is checked, every signature is known.</p>
+
+<h2>Types</h2>
+
+<p>A type is a promise about which values an expression can produce, and therefore about which operations make sense on it. Wahoo has three: <code>coins</code> (whole numbers), <code>switch</code> (<code>star</code> or <code>goomba</code>) and <code>text</code>. The surprise is that at run time all three are the same thing, a 32-bit integer: a switch is 0 or 1, and a text is the memory address of its bytes (<a href="@ch:codegen">chapter 04</a>). Nothing in the machine stops you from adding an address to a number. The type checker does, before the program exists.</p>
+
+<p>Languages differ in <em>when</em> they check. <strong>Statically typed</strong> languages (Wahoo, C, Java, Rust, Haskell) check before running, so a type error is a compile error. <strong>Dynamically typed</strong> ones (Python, JavaScript, Ruby) attach types to values and check each operation as it happens. They also differ in how forgiving they are: JavaScript answers <code>"1" + 1</code> with <code>"11"</code> and <code>"1" - 1</code> with <code>0</code>, converting silently, whereas Python raises an error.</p>
+
+<p>Type rules are usually written as <strong>inference rules</strong>: if the facts above the line hold, the fact below it holds. <code>e : T</code> reads “expression <code>e</code> has type <code>T</code>”. These are four of Wahoo's:</p>
+
+<div class="rules">
+  <span class="rule"><span class="premises">a : coins &nbsp;&nbsp; b : coins</span><span class="conclusion">a + b : coins</span><span class="rule-name">add</span></span>
+  <span class="rule"><span class="premises">a : coins &nbsp;&nbsp; b : coins</span><span class="conclusion">a &lt; b : switch</span><span class="rule-name">less</span></span>
+  <span class="rule"><span class="premises">a : T &nbsp;&nbsp; b : T</span><span class="conclusion">a == b : switch</span><span class="rule-name">equal</span></span>
+  <span class="rule"><span class="premises">c : switch &nbsp;&nbsp; body ok</span><span class="conclusion">question c { body } ok</span><span class="rule-name">question</span></span>
+</div>
+
+<p>The checker applies them bottom-up over the tree: the type of <code>lives + 1</code> is computed from the types of <code>lives</code> and <code>1</code>, and then compared with what its context needs. When a rule fails, the expression gets a special <em>error type</em> that is compatible with everything. Without it, one unknown name in <code>nope + 1 &gt; 2</code> would produce three errors (the name, the addition, the comparison); with it, the user sees one.</p>
+
+<figure class="demo" data-demo="semantics/errors">
+  <figcaption>A gallery of programs that parse but do not make sense. Pick one, then edit it: the checker runs on every keystroke. Click a diagnostic to jump to the code it points at. Notice the suggestions: a misspelt name gets the closest declared one, and types from other languages (<code>int</code>, <code>bool</code>, <code>string</code>) get their Wahoo equivalents.</figcaption>
+</figure>
+
+<h2>Type inference</h2>
+
+<p>Wahoo never makes you write the type of a variable: in <code>coin lives = 3</code> the checker <em>infers</em> <code>coins</code> from the value. You can still annotate it (<code>coin lives: coins = 3</code>), and then the checker verifies that the value agrees. Only pipe signatures require types, which is the usual compromise in Rust, Swift, Kotlin, Go, C# and modern C++: types at the boundaries, inference inside.</p>
+
+<p>Some languages go much further. Roger Hindley (1969) and, independently, Robin Milner (1978) showed how to infer the <em>most general</em> type of every expression in a program with no annotations at all, by collecting equations between unknown types and solving them by unification. The Hindley–Milner algorithm is the heart of ML, OCaml, F# and Haskell: you can write <code>map f xs</code> without a single type and the compiler works out that it has type <code>(a → b) → [a] → [b]</code> for any types <code>a</code> and <code>b</code>.</p>
+
+<h2>Errors for humans</h2>
+
+<p>A compiler's error messages are its user interface, and for decades they were dreadful. The change came from languages that treated them as a design problem: Elm's “compiler errors for humans” (2015) and Rust's diagnostics set a standard of plain sentences, the exact location, and a concrete suggestion. Wahoo follows the same recipe. Each diagnostic has a precise title, a label under the offending code (where the Mushroom Kingdom is allowed to speak) and, where possible, a hint:</p>
+
+<pre class="code-block"><code>error[E205]: unknown name `lifes`
+ --&gt; level.wahoo:3:9
+  |
+3 |   wahoo(lifes)
+  |         ^^^^^ Bowser has never heard of it
+  = hint: did you mean `lives`?</code></pre>
+
+<p>The suggestion comes from the <strong>edit distance</strong> (Levenshtein, 1965): the least number of single-character insertions, deletions or substitutions that turn one word into another. <code>lifes</code> is at distance 1 from <code>lives</code>, so if that name is in scope it is offered. A threshold that grows with the length of the name keeps the suggestions plausible.</p>
+
+<h2>Checks that cannot be perfect</h2>
+
+<p>A pipe that promises a value must deliver it on every path. The checker walks each body and asks: does every way through it end in a <code>flag</code>? A <code>flag</code> does; a <code>question</code> with an <code>else</code> does if both branches do; a loop never counts, because it may run zero times. This pipe is rejected:</p>
+
+<pre class="wahoo">pipe sign(n: coins) -&gt; coins {
+  question n &gt; 0 {
+    flag 1
+  } else question n &lt; 0 {
+    flag -1
+  }
+}                        // and when n is 0?</pre>
+
+<p>So, more surprisingly, is <code>pipe one() -&gt; coins { question 1 &lt; 2 { flag 1 } }</code>, which obviously always returns. The checker does not evaluate conditions; it only looks at the shape of the code. That is not laziness. By Rice's theorem (1953), every non-trivial question about what a program <em>does</em> is undecidable, so any checker must either reject some correct programs or accept some wrong ones. Type systems and flow checks choose to be <strong>conservative</strong>: when in doubt, refuse, and let the programmer add an <code>else</code>. Java's “missing return statement” and Rust's “mismatched types” make the same choice.</p>
+
+<p>The same kind of analysis, run the other way, flags <strong>unreachable code</strong> (statements after a <code>flag</code>, reported as a warning) and division by a literal zero (“this falls into a pit when it runs”).</p>
+
+<h2>Desugaring</h2>
+
+<p>Some constructs exist only for the programmer's convenience. The checker rewrites them into a smaller core, so that later phases have fewer cases to handle. In Wahoo:</p>
+
+<ul>
+  <li><code>power_up x</code> becomes <code>x = x + 1</code>, and <code>damage x by 5</code> becomes <code>x = x - 5</code>;</li>
+  <li><code>else question …</code> becomes an <code>else</code> block containing a <code>question</code>;</li>
+  <li>every variable becomes a numbered slot (shadowed variables get different numbers), and every pipe a numbered function;</li>
+  <li>every text literal is stored once, so two identical texts are the same text.</li>
+</ul>
+
+<p>After this phase the program is small, explicit and known to be well-formed. The compiler can finally start thinking about the machine.</p>
+
+<section class="references">
+  <h2>References</h2>
+  <ol>
+    <li>N. Chomsky (1957). <em>Syntactic Structures</em>. Mouton.</li>
+    <li>H. G. Rice (1953). “Classes of Recursively Enumerable Sets and Their Decision Problems”. <em>Transactions of the American Mathematical Society</em>, 74(2).</li>
+    <li>V. I. Levenshtein (1965). “Binary Codes Capable of Correcting Deletions, Insertions, and Reversals” (in Russian). <em>Doklady Akademii Nauk SSSR</em>, 163(4).</li>
+    <li>R. Hindley (1969). “The Principal Type-Scheme of an Object in Combinatory Logic”. <em>Transactions of the American Mathematical Society</em>, 146.</li>
+    <li>R. Milner (1978). “A Theory of Type Polymorphism in Programming”. <em>Journal of Computer and System Sciences</em>, 17(3).</li>
+    <li>B. C. Pierce (2002). <em>Types and Programming Languages</em>. MIT Press.</li>
+    <li>E. Czaplicki (2015). “Compiler Errors for Humans”. <em>elm-lang.org</em> blog.</li>
+  </ol>
+</section>

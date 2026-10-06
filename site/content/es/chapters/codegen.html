@@ -1,0 +1,148 @@
+<!--meta
+{
+  "slug": "generacion-de-codigo",
+  "title": "Generación de código",
+  "chain": "Código",
+  "headline": "Del significado a las instrucciones",
+  "dek": "El programa comprobado dice qué debe ocurrir; el generador de código decide cómo, con el vocabulario de la máquina destino. En WebAssembly esa máquina es una máquina de pila: las expresiones se convierten en secuencias de apilar y operar, y los bucles en bloques de los que solo se puede salir o volver al principio.",
+  "era": "1957 – hoy",
+  "people": ["Gregory Chaitin", "Ron Cytron", "Kenneth Zadeck", "Chris Lattner"],
+  "concepts": ["Representaciones intermedias", "Máquinas de pila", "Traducir el control de flujo", "Disposición en memoria", "Asignación de registros"]
+}
+-->
+
+<p>Cuando un programa en Wahoo llega al generador de código, todo sobre él se conoce: cada nombre es una casilla numerada, cada expresión tiene un tipo, cada pipe una firma. Lo que queda es traducirlo a un lenguaje con muchas menos ideas. WebAssembly no tiene <code>question</code>, ni <code>bounce</code>, ni <code>run</code>, ni texto, ni booleanos: tiene enteros de 32 bits, casillas locales, un vector lineal de bytes y una docena de formas de moverse entre instrucciones. Generar código es el arte de decir cosas ricas con un vocabulario pobre.</p>
+
+<h2>Representaciones intermedias</h2>
+
+<p>Los compiladores reales rara vez saltan directamente de un árbol sintáctico a código máquina. Pasan por una o varias <strong>representaciones intermedias</strong> (IR), cada una más cercana a la máquina que la anterior. La clásica es el <em>código de tres direcciones</em>, en el que cada instrucción tiene como mucho un operador:</p>
+
+<pre class="code-block"><code>// a + b * 2
+t1 = b * 2
+t2 = a + t1</code></pre>
+
+<p>Desde finales de los ochenta casi todos los compiladores optimizadores usan un refinamiento suyo, la forma de <strong>asignación única estática</strong> (SSA), en la que cada variable se asigna exactamente una vez; una variable que cambia en un bucle se parte en versiones. La SSA simplifica muchas optimizaciones, porque la definición que llega a cada uso es evidente. LLVM, que Chris Lattner empezó en 2000, convirtió una IR en SSA bien diseñada en una interfaz pública: Clang, rustc, Swift, Julia y Zig traducen sus lenguajes a la IR de LLVM y dejan que un back end compartido haga el resto. Sin ese punto medio, <em>M</em> lenguajes y <em>N</em> procesadores necesitan <em>M × N</em> compiladores; con él, <em>M + N</em>.</p>
+
+<p>La IR de Wahoo es la HIR tipada del <a href="@ch:semantics">capítulo 03</a>, y su destino, WebAssembly, es en cierto modo otra IR: el navegador la compila una vez más para el procesador real (<a href="@ch:runtime">capítulo 06</a>).</p>
+
+<h2>Máquinas de pila</h2>
+
+<p>En una <strong>máquina de pila</strong> las instrucciones toman sus operandos de la cima de una pila y dejan allí su resultado. <code>i32.const 2</code> apila un 2; <code>i32.mul</code> desapila dos números y apila su producto. Generar código para una expresión se reduce entonces a recorrer su árbol en <em>postorden</em>: primero el código de los operandos, de izquierda a derecha, y luego el operador.</p>
+
+<div class="code-pair">
+<pre class="wahoo">a + b * 2</pre>
+<pre class="wat">local.get $a     ;; pila: a
+local.get $b     ;; pila: a b
+i32.const 2      ;; pila: a b 2
+i32.mul          ;; pila: a (b*2)
+i32.add          ;; pila: a+b*2</pre>
+</div>
+
+<p>Sin nombres temporales ni registros que elegir: la pila guarda los resultados intermedios. Por eso las máquinas de pila son destinos populares para las máquinas virtuales (la JVM, el CIL de .NET, el bytecode de CPython y WebAssembly lo son), y por eso la parte de expresiones de un generador de código para ellas cabe en unas pocas docenas de líneas.</p>
+
+<figure class="demo" data-demo="codegen/stack">
+  <figcaption>El compilador de verdad convierte la expresión en el cuerpo de una pipe <code>f(a, b, c)</code>, con el optimizador apagado, y la figura ejecuta el WebAssembly producido, instrucción a instrucción. La línea resaltada es la instrucción recién ejecutada y la columna derecha es la pila de operandos, con la cima arriba. Las comparaciones apilan 1 o 0; con <code>and</code> y <code>or</code> fíjate en cómo el <code>if</code> se salta el lado derecho cuando el izquierdo ya decide la respuesta.</figcaption>
+</figure>
+
+<h2>Traducir el control de flujo</h2>
+
+<p>Los procesadores no tienen <code>if</code> ni <code>while</code>, solo saltos condicionales. WebAssembly es algo más estructurado, a propósito: tiene bloques, bucles e <code>if</code>, y los saltos solo pueden salir de un bloque que los rodea (<code>br</code> a un <code>block</code>) o volver al principio de un bucle que los rodea (<code>br</code> a un <code>loop</code>). No hay un <code>goto</code> a cualquier dirección, y eso permite validar un módulo en una sola pasada rápida y compilarlo con seguridad. Un salto nombra su destino por profundidad: <code>br 0</code> es la construcción más interior, <code>br 1</code> la siguiente hacia fuera.</p>
+
+<p>Esto es lo que el compilador de Wahoo emite de verdad para un bucle <code>bounce</code> (los comentarios <code>;;</code> con números de línea los añade el compilador, para ligar cada instrucción con su código fuente):</p>
+
+<div class="code-pair wide">
+<pre class="wahoo">world 1-1 {
+  coin lives = 3
+  bounce lives &gt; 0 {
+    wahoo(lives)
+    damage lives
+  }
+}</pre>
+<pre class="wat">(func $world_1_1
+  (local $lives i32)
+  ;; 2: coin lives = 3
+  i32.const 3
+  local.set $lives
+  ;; 3: bounce lives &gt; 0 {
+  block
+    loop
+      local.get $lives
+      i32.const 0
+      i32.gt_s
+      i32.eqz
+      br_if 1          ;; condición falsa: salir del bloque
+      ;; 4: wahoo(lives)
+      local.get $lives
+      call $print_coins
+      call $print_newline
+      ;; 5: damage lives
+      local.get $lives
+      i32.const 1
+      i32.sub
+      local.set $lives
+      br 0             ;; volver al principio del bucle
+    end
+  end
+)</pre>
+</div>
+
+<p>El patrón es siempre el mismo: un <code>block</code> para tener adónde escapar, un <code>loop</code> para tener adónde volver, la condición negada con <code>i32.eqz</code> para que <code>br_if 1</code> salga cuando es falsa, el cuerpo y un <code>br 0</code> incondicional. Fíjate en <code>damage lives</code>: a estas alturas ya es <code>lives = lives - 1</code>, el desazucarado del comprobador. Un bucle <code>run i from a to b</code> se traduce igual, con una variable local oculta que guarda <code>b</code> para evaluarlo una sola vez.</p>
+
+<p><code>question</code> se corresponde con el <code>if</code>/<code>else</code>/<code>end</code> de WebAssembly. Los operadores de cortocircuito también lo usan: <code>a and b</code> se convierte en «calcula <code>a</code>; si es cierto, calcula <code>b</code>; si no, apila 0», un <code>if</code> que deja un valor en la pila (<code>if (result i32)</code>). Así es como <code>goomba and explota()</code> nunca llama a <code>explota</code>.</p>
+
+<h2>Funciones y llamadas</h2>
+
+<p>Cada pipe se convierte en una función de WebAssembly cuyos parámetros son sus primeras variables locales. Una llamada apila los argumentos y ejecuta <code>call</code>; el motor se ocupa de la pila de llamadas. <code>flag</code> se convierte en <code>return</code>. Un detalle muestra lo estricto que es WebAssembly:</p>
+
+<div class="code-pair wide">
+<pre class="wahoo">pipe max(a: coins, b: coins) -&gt; coins {
+  question a &gt; b {
+    flag a
+  } else {
+    flag b
+  }
+}</pre>
+<pre class="wat">(func $max (param $a i32) (param $b i32) (result i32)
+  ;; 2: question a &gt; b {
+  local.get $a
+  local.get $b
+  i32.gt_s
+  if
+    ;; 3: flag a
+    local.get $a
+    return
+  else
+    ;; 5: flag b
+    local.get $b
+    return
+  end
+  unreachable
+)</pre>
+</div>
+
+<p>Las dos ramas devuelven, así que nunca se alcanza el final de la función. Pero el validador no razona sobre eso: ve un <code>if</code> que no deja nada en la pila seguido del final de una función que debe devolver un <code>i32</code>, y rechazaría el módulo. La instrucción <code>unreachable</code> final le dice que el control nunca llega ahí. El comprobador de Wahoo ya lo ha demostrado (<a href="@ch:semantics">capítulo 03</a>), así que el generador de código puede afirmarlo con seguridad.</p>
+
+<h2>Los datos en memoria</h2>
+
+<p>Los números y los switches caben en una casilla de la pila, pero los textos no. WebAssembly da a cada módulo una <strong>memoria lineal</strong>, un simple vector de bytes, y el compilador decide cómo colocar los datos en ella. Wahoo guarda cada texto literal una sola vez, a partir de la dirección 16, como una longitud de cuatro bytes seguida de sus bytes UTF-8, rellenando hasta un múltiplo de cuatro. Un valor <code>text</code> es simplemente la dirección de su longitud. Los bytes los coloca un <em>segmento de datos</em>, que el motor copia en la memoria al arrancar el módulo:</p>
+
+<pre class="wat">(data (i32.const 16) "\04\00\00\00fib(\04\00\00\00) = ")</pre>
+
+<p>Dos literales idénticos se guardan una vez, así que tienen la misma dirección, y comparar direcciones es comparar textos. Los primeros dieciséis bytes se dejan vacíos para que ningún texto viva nunca en la dirección 0.</p>
+
+<p>Imprimir no es algo que WebAssembly sepa hacer por sí solo: un módulo solo puede calcular y tocar su propia memoria. Todo lo demás se <strong>importa</strong> del anfitrión. Los módulos de Wahoo importan cuatro funciones, <code>print_coins</code>, <code>print_switch</code>, <code>print_text</code> y <code>print_newline</code>, y exportan dos cosas: su memoria (para que el anfitrión pueda leer los textos) y <code>main</code>, que juega todos los mundos en orden. En el navegador, el anfitrión son unas pocas líneas de JavaScript; en la línea de órdenes, unas pocas de Rust.</p>
+
+<h2>Lo que además hacen los back ends reales</h2>
+
+<p>Compilar para una máquina de pila se salta los dos trabajos más duros de un back end para procesadores reales. La <strong>selección de instrucciones</strong> elige, entre las muchas secuencias de instrucciones que calculan lo mismo, una barata (x86 puede multiplicar por 5 con un único cálculo de dirección, <code>lea</code>). La <strong>asignación de registros</strong> decide qué valores viven en el puñado de registros del procesador y cuáles hay que <em>derramar</em> a memoria. En 1981 Gregory Chaitin mostró cómo tratarla como colorear un grafo, con un nodo por valor y una arista entre valores vivos a la vez: <em>k</em> registros son <em>k</em> colores. Colorear grafos es NP-completo, así que los asignadores reales se apoyan en buenas heurísticas, y los rápidos (en los JIT) en esquemas más simples como el barrido lineal. Cuando un navegador compila un módulo de Wahoo, es su motor quien hace este trabajo.</p>
+
+<section class="references">
+  <h2>Referencias</h2>
+  <ol>
+    <li>G. J. Chaitin (1982). “Register Allocation &amp; Spilling via Graph Coloring”. <em>Proceedings of the SIGPLAN Symposium on Compiler Construction</em>.</li>
+    <li>R. Cytron, J. Ferrante, B. K. Rosen, M. N. Wegman y F. K. Zadeck (1991). “Efficiently Computing Static Single Assignment Form and the Control Dependence Graph”. <em>ACM Transactions on Programming Languages and Systems</em>, 13(4).</li>
+    <li>C. Lattner y V. Adve (2004). “LLVM: A Compilation Framework for Lifelong Program Analysis &amp; Transformation”. <em>Proceedings of CGO</em>.</li>
+    <li>A. Haas, A. Rossberg, D. L. Schuff, B. L. Titzer et al. (2017). “Bringing the Web up to Speed with WebAssembly”. <em>Proceedings of PLDI</em>.</li>
+    <li>WebAssembly Community Group (2019). <em>WebAssembly Core Specification</em>, recomendación del W3C.</li>
+  </ol>
+</section>

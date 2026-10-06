@@ -1,0 +1,19 @@
+// El salto de Collatz: la mitad si es par, el triple más uno si es impar. ¿Llega todo número a la bandera del 1?
+pipe saltos(n: coins) -> coins {
+  coin cuenta = 0
+  bounce n != 1 {
+    question n % 2 == 0 {
+      n = n / 2
+    } else {
+      n = 3 * n + 1
+    }
+    power_up cuenta
+  }
+  flag cuenta
+}
+
+world 1-1 {
+  run n from 1 to 10 {
+    wahoo(n, " necesita ", saltos(n), " saltos para llegar a la bandera")
+  }
+}

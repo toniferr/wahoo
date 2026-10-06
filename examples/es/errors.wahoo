@@ -1,0 +1,14 @@
+// Este nivel está lleno de trampas. Prueba:  wahoo check examples/es/errors.wahoo --lang es
+pipe doble(n: int) -> coins {
+  flag n * 2
+}
+
+world 1-1 {
+  coin vidas = 3
+  wahoo(vida)
+  question vidas {
+    wahoo("sigo vivo")
+  }
+  coin nombre = "Mario"
+  wahoo(nombre + 1)
+}

@@ -1,0 +1,78 @@
+<!--meta
+{
+  "slug": "ejecucion",
+  "title": "La ejecución",
+  "chain": "Ejecutar",
+  "headline": "¿Quién lo ejecuta de verdad?",
+  "dek": "El último acto del compilador es escribir un fichero de bytes. Convertir esos bytes en un programa en marcha es trabajo de otra pieza de software: un cargador, una máquina virtual o, en el caso de Wahoo, el motor de WebAssembly de tu navegador, que comprueba el módulo, lo compila una vez más y lo ejecuta dentro de un entorno aislado.",
+  "era": "1945 – hoy",
+  "people": ["John von Neumann", "Alon Zakai", "Luke Wagner", "Andreas Rossberg"],
+  "concepts": ["Programa almacenado", "Enlazado y carga", "WebAssembly", "Validación y aislamiento", "Compilación por niveles"]
+}
+-->
+
+<p>Un compilador nunca ejecuta tu programa. Escribe un fichero, y ahí acaba su responsabilidad. Lo que pasa después depende del tipo de fichero: un ejecutable nativo se entrega al <em>cargador</em> del sistema operativo; un <code>.jar</code>, a la máquina virtual de Java; un módulo <code>.wasm</code>, a un motor de WebAssembly. Este último capítulo sigue a un módulo de Wahoo desde unos bytes en el disco hasta las instrucciones que se ejecutan en tu procesador.</p>
+
+<h2>Los programas son datos</h2>
+
+<p>Todo esto descansa sobre una idea de 1945. En su <em>Primer borrador de un informe sobre el EDVAC</em>, John von Neumann describió un ordenador cuyo programa se guarda en la misma memoria que sus datos, como números. Antes de eso, máquinas como ENIAC se programaban recableándolas. Una vez que un programa es solo datos, un programa puede <em>escribir</em> otro, que es exactamente lo que hace un compilador, y otro puede leerlo y representarlo, que es lo que hace un intérprete. Cada capítulo de esta web es una consecuencia de ese diseño.</p>
+
+<p>Para el código nativo, los últimos pasos son el <strong>enlazado</strong> y la <strong>carga</strong>. El enlazador une las piezas compiladas de un programa y sus bibliotecas en un único fichero ejecutable (ELF en Linux, PE en Windows, Mach-O en macOS), corrigiendo las direcciones que cada pieza usa para referirse a las demás. Al arrancar el programa, el cargador del sistema operativo lleva el fichero a memoria, lo conecta con las bibliotecas compartidas y salta a su primera instrucción.</p>
+
+<h2>WebAssembly</h2>
+
+<p>Durante dos décadas el único lenguaje que los navegadores sabían ejecutar fue JavaScript. En 2013 Alon Zakai y Luke Wagner, de Mozilla, mostraron con <em>asm.js</em> que un subconjunto estricto de JavaScript, con tipos deducibles estáticamente y producido compilando C y C++, podía optimizarse de antemano hasta una velocidad casi nativa. La lección llevó a los cuatro grandes fabricantes de navegadores a diseñar juntos un formato de verdad: <strong>WebAssembly</strong> se anunció en 2015, llegó a todos los grandes navegadores en 2017 y se convirtió en recomendación del W3C en diciembre de 2019. Sus objetivos caben en una frase: rápido de cargar, rápido de ejecutar, seguro para ejecutar código de cualquier procedencia, e independiente de cualquier procesador o lenguaje. Hoy también se usa fuera del navegador, en servidores, sistemas de plugins y redes de borde.</p>
+
+<p>WebAssembly no es un lenguaje pensado para escribirlo a mano (aunque su forma de texto, WAT, se lee bien, como han mostrado los capítulos anteriores). Es un <strong>destino de compilación</strong>: C, C++, Rust, Go, Zig, Kotlin, y ahora Wahoo, compilan a él.</p>
+
+<h2>Anatomía de un módulo</h2>
+
+<p>Un fichero <code>.wasm</code> empieza con ocho bytes: el «número mágico» <code>00 61 73 6D</code>, que se lee <code>\0asm</code>, y la versión, 1. Después vienen <strong>secciones</strong>, cada una precedida por un byte identificador y su tamaño: los <em>tipos</em> de función, las <em>importaciones</em> que debe aportar el anfitrión, qué tipo tiene cada <em>función</em> definida, la <em>memoria</em>, las <em>exportaciones</em>, el <em>código</em> de cada cuerpo de función y los <em>datos</em> que colocar en memoria. Pueden añadirse secciones personalizadas en cualquier sitio; Wahoo añade la sección estándar <code>name</code>, para que las herramientas y los mensajes de error muestren <code>$fib</code> en vez de «función 4».</p>
+
+<p>Todo número del formato se escribe en <strong>LEB128</strong>, una codificación de longitud variable: siete bits por byte, primero los bajos, y el bit más alto de cada byte indica si viene otro detrás. Los números pequeños, que son la inmensa mayoría (índices de variables, constantes pequeñas, longitudes cortas), ocupan un solo byte. El número 624 485, por ejemplo, es <code>E5 8E 26</code>.</p>
+
+<figure class="demo" data-demo="runtime/bytes">
+  <figcaption>Los bytes que produce el compilador de verdad para este programa, coloreados por sección, con una tabla que describe cada una. Ejecútalo, alarga luego el programa y mira qué secciones crecen: un texto nuevo agranda la sección de datos; una pipe nueva, las de tipos, funciones y código. El codificador de Wahoo está escrito a mano en unos pocos cientos de líneas de Rust (<code>wasm.rs</code>).</figcaption>
+</figure>
+
+<h2>Validación: un comprobador de tipos para código máquina</h2>
+
+<p>Antes de ejecutar una sola instrucción, el motor <strong>valida</strong> el módulo entero, y lo rechaza si algo está mal. La validación es una comprobación de tipos al nivel más bajo: cada instrucción tiene un efecto conocido sobre la pila (<code>i32.add</code> desapila dos <code>i32</code> y apila uno), cada bloque declara qué deja tras de sí, todo destino de salto debe existir, todo índice de función debe estar en rango. Como el control de flujo es estructurado (<a href="@ch:codegen">capítulo 04</a>), todo esto se hace en una sola pasada lineal sobre el código. Por eso el generador de código de Wahoo tenía que añadir un <code>unreachable</code> tras un <code>question</code> cuyas dos ramas devuelven: el validador no se fía de la palabra del compilador.</p>
+
+<h2>El entorno aislado</h2>
+
+<p>Una página web puede ejecutar un módulo escrito por cualquiera, así que WebAssembly está diseñado para que el peor caso sea inofensivo (es un <em>sandbox</em>). Un módulo solo puede tocar su propia <strong>memoria lineal</strong>, y cada acceso se comprueba contra su tamaño (los motores lo hacen casi gratis reservando una enorme región de memoria virtual y dejando que la protección de memoria del procesador atrape los accesos perdidos). No puede saltar a cualquier dirección: las llamadas van a funciones conocidas y los saltos a bloques conocidos. La pila de llamadas, con sus direcciones de retorno, vive fuera de la memoria del módulo, donde este no puede sobrescribirla. Y solo puede alcanzar el mundo exterior a través de sus importaciones. Un programa en Wahoo tiene exactamente cuatro: puede imprimir un número, un switch, un texto y un salto de línea, y nada más.</p>
+
+<h2>De WebAssembly al procesador</h2>
+
+<p>El módulo sigue sin ser código máquina. El navegador lo compila, una vez más, para el procesador en el que se ejecuta, con el mismo compromiso entre velocidad de compilación y velocidad del resultado que describía el <a href="@ch:execution">capítulo 00</a>. V8, el motor de Chrome, compila primero cada función con <strong>Liftoff</strong>, un compilador básico que traduce en una sola pasada, para que el módulo pueda empezar a ejecutarse casi de inmediato. Las funciones que resultan estar calientes se recompilan en segundo plano con <strong>TurboFan</strong>, el compilador optimizador (el mismo que optimiza JavaScript), y se sustituyen. Firefox y Safari siguen un diseño por niveles parecido.</p>
+
+<p>No todos los anfitriones compilan. La herramienta de línea de órdenes <code>wahoo</code> ejecuta los módulos con <strong>wasmi</strong>, un <em>intérprete</em> de WebAssembly escrito en Rust: valida el módulo y luego lo ejecuta a través de su propio bytecode interno. El mismo fichero <code>.wasm</code> se interpreta en la línea de órdenes y se compila a código máquina en el navegador. Es la lección del capítulo 00, por última vez: ser compilado o interpretado es una propiedad de la implementación.</p>
+
+<h2>Cuando algo falla al ejecutar</h2>
+
+<p>Algunos fallos solo se descubren al ejecutar. Cuando una instrucción de WebAssembly no puede hacer su trabajo, provoca una <strong>trampa</strong> (<em>trap</em>): la ejecución se detiene en el acto y el anfitrión recibe un error. Los programas de Wahoo pueden caer en tres, y cada una se cuenta en clave de juego:</p>
+
+<ul>
+  <li><strong>División entre cero</strong> (<code>i32.div_s</code> con divisor cero): «Has caído a un foso».</li>
+  <li><strong>División que desborda</strong>: <code>-2147483648 / -1</code> sería <code>2147483648</code>, que no cabe en 32 bits.</li>
+  <li><strong>Desbordamiento de pila</strong>: demasiadas llamadas anidadas, normalmente una recursión sin salida: «Demasiadas tuberías anidadas».</li>
+</ul>
+
+<p>Un bucle que no termina no provoca ninguna trampa; simplemente no se detiene nunca, y por el problema de la parada ningún comprobador puede saberlo siempre de antemano. Los dos anfitriones lo resuelven de forma distinta. En el navegador, Wahoo ejecuta cada programa en un <strong>Web Worker</strong>, un hilo aparte, y lo mata a los tres segundos («¡Se acabó el tiempo!»). En la línea de órdenes, wasmi puede medir <strong>combustible</strong>: cada instrucción consume una unidad, y la ejecución se detiene cuando el depósito se vacía (<code>wahoo run --fuel 1000000</code>).</p>
+
+<h2>El viaje completo</h2>
+
+<p>Sigue una vez más a un programa en Wahoo. Los caracteres se convierten en tokens (<a href="@ch:lexing">01</a>); los tokens, en un árbol (<a href="@ch:parsing">02</a>); el árbol se comprueba y se simplifica (<a href="@ch:semantics">03</a>); se traduce a instrucciones de máquina de pila (<a href="@ch:codegen">04</a>), se abarata (<a href="@ch:optimization">05</a>) y se codifica en bytes. El navegador valida esos bytes, los compila a las instrucciones propias del procesador y los ejecuta en un entorno aislado, llamando a JavaScript cada vez que el programa dice <code>wahoo</code>. En el <a href="@playground">playground</a> puedes ver cada uno de esos pasos con tus propios programas.</p>
+
+<section class="references">
+  <h2>Referencias</h2>
+  <ol>
+    <li>J. von Neumann (1945). <em>First Draft of a Report on the EDVAC</em>. Moore School of Electrical Engineering, Universidad de Pensilvania.</li>
+    <li>J. R. Levine (1999). <em>Linkers and Loaders</em>. Morgan Kaufmann.</li>
+    <li>A. Zakai (2011). “Emscripten: An LLVM-to-JavaScript Compiler”. <em>Proceedings of SPLASH (OOPSLA companion)</em>.</li>
+    <li>A. Haas, A. Rossberg, D. L. Schuff, B. L. Titzer et al. (2017). “Bringing the Web up to Speed with WebAssembly”. <em>Proceedings of PLDI</em>.</li>
+    <li>Equipo de V8 (2018). “Liftoff: a new baseline compiler for WebAssembly in V8”. Blog <em>v8.dev</em>.</li>
+    <li>WebAssembly Community Group (2019). <em>WebAssembly Core Specification</em>, recomendación del W3C.</li>
+  </ol>
+</section>

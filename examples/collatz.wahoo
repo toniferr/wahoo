@@ -1,0 +1,19 @@
+// The Collatz jump: halve when even, triple plus one when odd. Does every number reach the flag at 1?
+pipe jumps(n: coins) -> coins {
+  coin count = 0
+  bounce n != 1 {
+    question n % 2 == 0 {
+      n = n / 2
+    } else {
+      n = 3 * n + 1
+    }
+    power_up count
+  }
+  flag count
+}
+
+world 1-1 {
+  run n from 1 to 10 {
+    wahoo(n, " needs ", jumps(n), " jumps to reach the flag")
+  }
+}

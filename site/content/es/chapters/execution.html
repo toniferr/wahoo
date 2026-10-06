@@ -1,0 +1,130 @@
+<!--meta
+{
+  "slug": "compilar-o-interpretar",
+  "title": "Modelos de ejecución",
+  "chain": "Modelos",
+  "headline": "¿Compilado, interpretado o las dos cosas?",
+  "dek": "Un procesador solo entiende código máquina. Hay dos maneras de hacerle llegar un programa escrito como texto: traducirlo entero de antemano, o leerlo y representarlo sobre la marcha. Casi todos los lenguajes reales usan una mezcla de las dos.",
+  "era": "1949 – hoy",
+  "people": ["Grace Hopper", "John Backus", "John McCarthy", "Lars Bak"],
+  "concepts": ["Compilador frente a intérprete", "Bytecode y máquinas virtuales", "Compilación «justo a tiempo»", "Transpiladores", "Autocompilación"]
+}
+-->
+
+<p>Un procesador es asombrosamente literal. Lee unos pocos bytes de la memoria, los descodifica como una instrucción («suma estos dos registros», «salta si es cero»), la ejecuta y lee la siguiente. Eso es todo lo que hará jamás. Una línea como <code>coin vidas = 3</code> no significa nada para él: alguien tiene que convertir el texto en esos bytes, o en acciones equivalentes.</p>
+
+<p>Hay dos formas clásicas de hacerlo, y un congreso da una buena imagen de ambas. Un <em>traductor</em> recibe la víspera el texto escrito de la ponencia y entrega al público una copia impresa en su idioma: lento de preparar, pero luego cualquiera lo lee a toda velocidad, cuantas veces quiera. Un <em>intérprete</em> se sienta junto a quien habla y vierte cada frase según se pronuncia: no hay nada que preparar, pero cada frase cuesta esfuerzo cada vez, y si el ponente se contradice el intérprete solo lo nota al llegar a ese punto.</p>
+
+<h2>Dos maneras de ejecutar un programa</h2>
+
+<div class="definition">
+  <span class="th-title">Definición <span class="th-name">(compilador e intérprete)</span></span>
+  <p>Un <strong>compilador</strong> es un programa que recibe un programa en un <em>lenguaje fuente</em> y produce un programa equivalente en un <em>lenguaje destino</em>, sin ejecutarlo. Un <strong>intérprete</strong> es un programa que recibe un programa <em>y sus datos de entrada</em> y produce directamente la salida del programa, llevando a cabo lo que este dice.</p>
+</div>
+
+<p>La diferencia está en <em>cuándo</em> se hace el trabajo. El compilador hace su análisis una vez, antes de ejecutar, y el resultado puede ejecutarse muchas veces; el intérprete hace un poco de análisis cada vez que se ejecuta un trozo del programa. Los compiladores pueden permitirse pensar mucho (comprobar tipos, optimizar) porque ese coste se paga una sola vez. Los intérpretes arrancan al instante, pueden ejecutar código escrito hace un segundo y ven los valores reales con los que trabaja el programa.</p>
+
+<aside class="note">En 1971 Yoshihiko Futamura observó que un intérprete <em>especializado</em> para un programa fijo es una versión compilada de ese programa, y que especializar el especializador para el intérprete produce un compilador. Estas <strong>proyecciones de Futamura</strong> son la teoría detrás de herramientas como Truffle, de GraalVM, que convierten intérpretes en compiladores JIT.</aside>
+
+<p>Las primeras implementaciones de lenguajes de alto nivel fueron intérpretes. El <em>Short Code</em> de John Mauchly (1949) permitía a los programadores del UNIVAC escribir fórmulas en vez de instrucciones de máquina, y se interpretaba a un coste unas cincuenta veces mayor que el del código escrito a mano. Los programadores no estaban dispuestos a pagar ese precio, y durante una década se dio por hecho que la programación automática siempre sería lenta. El sistema A-0 de Grace Hopper (1952) empezó a llamar «compilador» a la estrategia de traducir, y en 1957 el equipo de John Backus en IBM entregó FORTRAN, cuyo compilador producía código casi tan bueno como el de un experto. Ese resultado, más que cualquier argumento, es lo que hizo aceptables los lenguajes de alto nivel.</p>
+
+<h2>Es la implementación, no el lenguaje</h2>
+
+<div class="idea">
+  <span class="th-title">Idea clave</span>
+  <p>«Compilado» e «interpretado» describen <strong>implementaciones</strong>, no lenguajes. Hay intérpretes de C (Cling, del CERN, ejecuta C++ de forma interactiva) y compiladores de Python (Cython, Nuitka y el compilador «justo a tiempo» de PyPy). Lo que se suele querer decir es cómo funciona la implementación <em>más habitual</em>.</p>
+</div>
+
+<p>Ni siquiera las implementaciones más habituales son puras. CPython, el Python estándar, compila tu fichero a <em>bytecode</em> antes de ejecutar una sola línea, y luego interpreta ese bytecode. Java se compila dos veces: una a bytecode en la máquina del programador, y otra, a código máquina, dentro de la máquina virtual mientras el programa se ejecuta. Los sistemas reales se sitúan en algún punto de un espectro.</p>
+
+<h2>El espectro</h2>
+
+<h3>Intérpretes que recorren el árbol</h3>
+
+<p>El diseño más directo: analizar el programa hasta obtener un árbol sintáctico (capítulos <a href="@ch:lexing">01</a> y <a href="@ch:parsing">02</a>) y evaluarlo recorriendo el árbol. Para calcular <code>a + b * 2</code> se visita el nodo <code>+</code>, que pide a sus hijos sus valores, y así hacia abajo. John McCarthy describió Lisp en 1960 mediante una función <code>eval</code> que hace exactamente eso, y Steve Russell le sorprendió implementándola: fue el primer intérprete de Lisp. Las shells como Bash siguen funcionando así, y también lo hacía Ruby hasta la versión 1.8. Es sencillo y flexible, pero lento: cada nodo visitado cuesta seguir punteros y decidir de qué tipo de nodo se trata.</p>
+
+<h3>Bytecode y máquinas virtuales</h3>
+
+<p>El paso siguiente es compilar el árbol a una lista plana de instrucciones sencillas para una máquina imaginaria, el <strong>bytecode</strong>, e interpretar eso en su lugar. Un bucle lee una instrucción, salta al código que la trata y repite. El bytecode es compacto, aprovecha bien la caché y se despacha con facilidad, lo que hace este diseño varias veces más rápido que recorrer un árbol. El <em>p-code</em> de Pascal (años setenta) hizo famosa la idea; hoy la usan CPython, Ruby, Lua, PHP, la JVM, .NET y la BEAM de Erlang. Algunas máquinas virtuales son <em>máquinas de pila</em> (los operandos viven en una pila, como en la JVM, CPython y WebAssembly) y otras son <em>máquinas de registros</em> (las instrucciones nombran sus operandos, como en Lua 5 y en Dalvik, de Android).</p>
+
+<h3>Compiladores «justo a tiempo»</h3>
+
+<p>Un <strong>JIT</strong> (<em>just-in-time</em>) compila a código máquina <em>mientras el programa se ejecuta</em>. Empieza interpretando, cuenta qué funciones están calientes y compila esas, usando información que ningún compilador previo puede tener: los tipos que aparecieron de verdad, qué ramas se toman, qué objetos tienen qué forma. Si una suposición resulta falsa (una función que siempre recibió enteros recibe de pronto una cadena), el JIT tira el código compilado y vuelve al intérprete: es la <em>desoptimización</em>. Las técnicas vienen de Smalltalk y, sobre todo, del proyecto Self de finales de los ochenta y principios de los noventa; las mismas personas construyeron después HotSpot para Java (1999) y, con Lars Bak, el V8 de Google (2008), que hizo JavaScript lo bastante rápido para ejecutar aplicaciones enteras.</p>
+
+<h3>Compiladores de antemano</h3>
+
+<p>Traducirlo todo antes de ejecutar (<em>ahead of time</em>, AOT): C, C++, Rust, Go, Swift, Haskell, Fortran. El arranque es instantáneo y el rendimiento previsible, no hay ningún compilador ocupando memoria mientras el programa se ejecuta, y muchos errores se detectan antes de que nadie ejecute nada. El precio es que el compilador tiene que adivinar qué hará el programa, y el ejecutable solo funciona en el procesador y el sistema operativo para los que se construyó.</p>
+
+<h3>Transpiladores</h3>
+
+<p>Un <strong>transpilador</strong> (compilador de fuente a fuente) traduce a otro lenguaje de alto nivel en vez de a código máquina: TypeScript y Elm a JavaScript, el primer C++ (Cfront) a C, Nim a C. Así aprovecha todo lo que el lenguaje destino ya tiene, de sus optimizadores a sus depuradores.</p>
+
+<figure class="demo" data-demo="execution/pipeline">
+  <figcaption>Del texto al procesador en doce lenguajes. Las cajas de borde continuo ocurren <strong>antes de ejecutar</strong> (en la máquina del programador o en un servidor de compilación), las de borde discontinuo <strong>al ejecutar</strong> (en la máquina del usuario, cada vez) y la caja oscura es el hardware. Fíjate en cuántos lenguajes compilan algo aunque se les llame interpretados, y en cuántos lenguajes con JIT hay además un compilador previo.</figcaption>
+</figure>
+
+<h2>Una docena de lenguajes, lado a lado</h2>
+
+<p>La misma historia en forma de tabla. «Se convierte en código máquina» indica cuándo aparece el código específico del procesador en la implementación más habitual; casi todas las filas tienen alternativas.</p>
+
+<div class="compare-wrap wide">
+<table class="compare">
+  <thead><tr><th>Lenguaje</th><th>Modelo</th><th>Implementación habitual</th><th>Qué se distribuye</th><th>Se convierte en código máquina</th><th>Tipos</th></tr></thead>
+  <tbody>
+    <tr><td>C</td><td><span class="pill pill-aot">AOT</span></td><td>GCC, Clang</td><td>ejecutable</td><td>antes de ejecutar</td><td>estáticos</td></tr>
+    <tr><td>Rust</td><td><span class="pill pill-aot">AOT</span></td><td>rustc + LLVM</td><td>ejecutable</td><td>antes de ejecutar</td><td>estáticos</td></tr>
+    <tr><td>Go</td><td><span class="pill pill-aot">AOT</span></td><td>gc</td><td>ejecutable con su runtime</td><td>antes de ejecutar</td><td>estáticos</td></tr>
+    <tr><td>Haskell</td><td><span class="pill pill-aot">AOT</span></td><td>GHC</td><td>ejecutable</td><td>antes de ejecutar</td><td>estáticos, inferidos</td></tr>
+    <tr><td>Java</td><td><span class="pill pill-jit">bytecode + JIT</span></td><td>javac + HotSpot</td><td>bytecode (.jar)</td><td>al ejecutar</td><td>estáticos</td></tr>
+    <tr><td>C#</td><td><span class="pill pill-jit">bytecode + JIT</span></td><td>Roslyn + .NET</td><td>bytecode (.dll)</td><td>al ejecutar (o antes, con Native AOT)</td><td>estáticos</td></tr>
+    <tr><td>JavaScript</td><td><span class="pill pill-jit">JIT</span></td><td>V8, SpiderMonkey, JavaScriptCore</td><td>código fuente</td><td>al ejecutar</td><td>dinámicos</td></tr>
+    <tr><td>Python</td><td><span class="pill pill-vm">bytecode + MV</span></td><td>CPython</td><td>código fuente</td><td>normalmente nunca (se ejecuta el intérprete; la 3.13 trae un JIT experimental)</td><td>dinámicos</td></tr>
+    <tr><td>Ruby</td><td><span class="pill pill-vm">bytecode + MV</span></td><td>CRuby (YARV)</td><td>código fuente</td><td>con YJIT, al ejecutar</td><td>dinámicos</td></tr>
+    <tr><td>PHP</td><td><span class="pill pill-vm">bytecode + MV</span></td><td>Zend Engine</td><td>código fuente</td><td>con el JIT de PHP 8, al ejecutar</td><td>dinámicos</td></tr>
+    <tr><td>Lua</td><td><span class="pill pill-vm">bytecode + MV</span></td><td>Lua de PUC-Rio, LuaJIT</td><td>fuente o bytecode</td><td>con LuaJIT, al ejecutar</td><td>dinámicos</td></tr>
+    <tr><td>TypeScript</td><td><span class="pill pill-trans">transpilado</span></td><td>tsc</td><td>JavaScript</td><td>como JavaScript</td><td>estáticos, luego borrados</td></tr>
+    <tr><td>Bash</td><td><span class="pill pill-interp">interpretado</span></td><td>bash</td><td>código fuente</td><td>nunca</td><td>todo es texto</td></tr>
+    <tr><td>Wahoo</td><td><span class="pill pill-aot">AOT a Wasm</span></td><td>wahoo (Rust)</td><td>WebAssembly (.wasm)</td><td>cuando lo carga el motor Wasm</td><td>estáticos</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>¿Por qué no compilar siempre?</h2>
+
+<p>Porque cada elección cambia una cosa por otra:</p>
+
+<ul>
+  <li><strong>Arranque frente a velocidad punta.</strong> Un intérprete arranca al instante; un JIT necesita un <em>calentamiento</em> antes de alcanzar su máxima velocidad; un binario compilado de antemano es rápido desde la primera instrucción. Para una herramienta de línea de órdenes que dura 20 milisegundos, el arranque lo es todo. Para un servidor que funciona meses, lo es la velocidad punta.</li>
+  <li><strong>Qué se sabe y cuándo.</strong> Un compilador AOT debe contemplar cualquier entrada que el programa pueda recibir. Un JIT ve las entradas que recibe de verdad y puede especializarse en ellas; por eso JavaScript, un lenguaje en el que <code>a + b</code> puede ser una suma, una concatenación de cadenas o una llamada a un método del usuario, consigue ejecutarse deprisa.</li>
+  <li><strong>Portabilidad.</strong> El bytecode funciona allá donde funcione su máquina virtual: «escríbelo una vez, ejecútalo en cualquier parte» era el lema de Java. Un ejecutable nativo hay que reconstruirlo para cada plataforma.</li>
+  <li><strong>Cuándo aparecen los errores.</strong> Un compilador con comprobador de tipos rechaza un programa con un error de tipos antes de ejecutarlo. Un intérprete con tipos dinámicos lo descubre en la línea donde ocurre, quizá en producción, quizá nunca.</li>
+  <li><strong>Interactividad.</strong> Los intérpretes hacen naturales los REPL, los cuadernos y la programación en vivo, porque no hay un paso de compilación aparte.</li>
+</ul>
+
+<h2>La apuesta del JIT</h2>
+
+<p>Piensa en una función de JavaScript <code>function suma(a, b) { return a + b; }</code>. De antemano no se puede suponer nada sobre <code>a</code> y <code>b</code>. Ignition, el intérprete de V8, la ejecuta unos cientos de veces y anota que ambos argumentos fueron siempre enteros pequeños. El compilador optimizador emite entonces unas pocas instrucciones de máquina: comprobar que ambos son enteros pequeños, sumarlos, comprobar el desbordamiento, devolver. Si una comprobación falla alguna vez, la ejecución salta de vuelta al intérprete y el código optimizado se descarta. La apuesta suele salir bien porque los programas reales son mucho más regulares de lo que sus lenguajes les permiten ser.</p>
+
+<aside class="note">Por eso las mediciones de JavaScript suelen mostrar una «escalera»: velocidad de intérprete, luego un salto cuando entra la compilación básica, y otro cuando toma el relevo el compilador optimizador.</aside>
+
+<h2>Compiladores que se compilan a sí mismos</h2>
+
+<p>Un compilador no es más que un programa, así que puede escribirse en el mismo lenguaje que compila. La primera vez es el problema del huevo y la gallina, y se resuelve con el <strong>arranque</strong> (<em>bootstrapping</em>): se escribe un primer compilador sencillo en otro lenguaje, se usa para compilar uno mejor escrito en el lenguaje nuevo y, a partir de ahí, el lenguaje se compila a sí mismo. El compilador de Lisp 1.5, de 1962, estaba escrito en Lisp; el primer compilador de Rust se escribió en OCaml hasta que pudo compilarse a sí mismo en 2011; el de Go pasó de C a Go en 2015. En su conferencia del premio Turing de 1984, <em>Reflexiones sobre confiar en la confianza</em>, Ken Thompson mostró el lado inquietante de esto: se puede enseñar a un compilador a meter una puerta trasera en todo programa que compile, <em>incluidas sus propias versiones futuras</em>, sin dejar rastro en ningún código fuente.</p>
+
+<h2>Dónde está Wahoo</h2>
+
+<p>Wahoo se compila de antemano, pero no a código máquina: su destino es <strong>WebAssembly</strong>, un bytecode portable diseñado para que el navegador lo compile una vez más, de forma rápida y segura. Así que un programa en Wahoo pasa por dos compiladores: <code>.wahoo</code> → <code>.wasm</code> con el nuestro, y luego <code>.wasm</code> → código máquina con el motor de tu navegador (<a href="@ch:runtime">capítulo 06</a>). Y en el playground el primer compilador es a su vez un módulo WebAssembly: Rust compilado a Wasm. Los capítulos siguientes lo abren, fase a fase, empezando por la más humilde: leer los caracteres.</p>
+
+<section class="references">
+  <h2>Referencias</h2>
+  <ol>
+    <li>G. M. Hopper (1952). “The Education of a Computer”. <em>Proceedings of the ACM National Meeting</em>.</li>
+    <li>J. W. Backus et al. (1957). “The FORTRAN Automatic Coding System”. <em>Proceedings of the Western Joint Computer Conference</em>.</li>
+    <li>J. McCarthy (1960). “Recursive Functions of Symbolic Expressions and Their Computation by Machine, Part I”. <em>Communications of the ACM</em>, 3(4).</li>
+    <li>Y. Futamura (1971). “Partial Evaluation of Computation Process — An Approach to a Compiler-Compiler”. <em>Systems, Computers, Controls</em>, 2(5).</li>
+    <li>K. Thompson (1984). “Reflections on Trusting Trust”. <em>Communications of the ACM</em>, 27(8).</li>
+    <li>U. Hölzle (1994). <em>Adaptive Optimization for Self: Reconciling High Performance with Exploratory Programming</em>. Tesis doctoral, Universidad de Stanford.</li>
+    <li>J. Aycock (2003). “A Brief History of Just-In-Time”. <em>ACM Computing Surveys</em>, 35(2).</li>
+    <li>R. Nystrom (2021). <em>Crafting Interpreters</em>. Genever Benning.</li>
+  </ol>
+</section>

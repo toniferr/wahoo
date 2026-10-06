@@ -1,0 +1,92 @@
+<!--meta
+{
+  "slug": "optimizacion",
+  "title": "Optimización",
+  "chain": "Optimizar",
+  "headline": "Hacer menos, más deprisa",
+  "dek": "Un optimizador reescribe un programa en otro más barato que se comporta exactamente igual. Algunas reescrituras son obvias, como calcular 2 × 60 al compilar; otras exigen analizar con cuidado cómo fluyen los valores por el programa. Todas obedecen una única regla: nadie debe poder notar la diferencia.",
+  "era": "1957 – hoy",
+  "people": ["Frances Allen", "John Cocke", "Gary Kildall", "Mark Wegman"],
+  "concepts": ["La regla del «como si»", "Plegado de constantes", "Eliminación de código muerto", "Análisis de flujo de datos", "Comportamiento indefinido"]
+}
+-->
+
+<p>Cuando apareció FORTRAN en 1957, los programadores estaban convencidos de que una máquina nunca escribiría código tan bueno como el suyo. John Backus sabía que, si el primer compilador producía programas lentos, la idea entera se descartaría, así que su equipo dedicó gran parte del esfuerzo a la <strong>optimización</strong>, y el compilador de FORTRAN I sorprendió a sus usuarios con código cercano al de un experto. Desde entonces la optimización es la razón por la que confiamos en los compiladores.</p>
+
+<p>La palabra engaña un poco. Ningún compilador encuentra el programa <em>óptimo</em>; aplica un catálogo de <strong>transformaciones</strong> seguras que normalmente hacen el programa más pequeño o más rápido. El optimizador de Wahoo (<code>optimizer.rs</code>) trabaja sobre la HIR comprobada, antes de generar código, y puedes encenderlo y apagarlo en el <a href="@playground">playground</a>.</p>
+
+<h2>La regla del «como si»</h2>
+
+<div class="idea">
+  <span class="th-title">Idea clave</span>
+  <p>Un optimizador puede cambiar cualquier cosa de un programa salvo su <strong>comportamiento observable</strong>: lo que imprime, lo que devuelve, y si falla y cómo. El estándar de C lo llama la regla del <em>as-if</em>: el programa debe comportarse <em>como si</em> se hubiera ejecutado exactamente tal como está escrito.</p>
+</div>
+
+<p>Qué cuenta como observable lo decide el lenguaje. En Wahoo cuentan la salida y los fallos al ejecutar. Por eso <code>10 / 0</code> <em>no</em> se pliega al compilar, aunque el compilador vea los dos números: el programa debe seguir cayendo al foso cuando llegue a esa línea, y solo entonces. Y <code>ruidoso() * 0</code> no se simplifica a <code>0</code>, porque <code>ruidoso()</code> podría imprimir algo. Solo las expresiones <em>puras</em>, sin llamadas ni posibles fallos, pueden descartarse.</p>
+
+<h2>Qué hace el optimizador de Wahoo</h2>
+
+<p><strong>Plegado de constantes.</strong> Toda operación cuyos operandos se conocen al compilar se calcula en ese momento: <code>2 * 60 + 30</code> se convierte en <code>150</code>, <code>3 &lt; 5</code> en <code>star</code>. El plegado debe usar exactamente la aritmética de la máquina destino: las <code>coins</code> de Wahoo son enteros de 32 bits que dan la vuelta, así que <code>2147483647 + 1</code> se pliega a <code>-2147483648</code>, el mismo valor que calcularía el programa al ejecutarse.</p>
+
+<p><strong>Simplificación algebraica.</strong> Identidades que se cumplen para cualquier valor: <code>x + 0</code>, <code>x - 0</code>, <code>x * 1</code> y <code>x / 1</code> son <code>x</code>; <code>not not s</code> es <code>s</code>; <code>star and s</code> es <code>s</code>; <code>goomba and s</code> es <code>goomba</code> (y <code>s</code> tampoco se habría ejecutado, porque <code>and</code> hace cortocircuito).</p>
+
+<p><strong>Eliminación de ramas.</strong> Un <code>question</code> cuya condición se ha plegado a una constante se sustituye por la rama que se ejecutará; un bucle <code>bounce goomba</code> desaparece; un bucle <code>run</code> con límites constantes y vacío (<code>from 5 to 1</code>) también.</p>
+
+<p><strong>Eliminación de código muerto.</strong> Las sentencias tras un <code>flag</code> nunca pueden ejecutarse y se eliminan (el comprobador ya avisó de ellas).</p>
+
+<figure class="demo" data-demo="optimization/diff">
+  <figcaption>El mismo programa compilado dos veces por el compilador de verdad, sin y con optimizador. Cuenta las instrucciones y los bytes sobre cada listado y lee la línea que dice qué ha hecho el optimizador. Edita el programa: añade aritmética constante, un <code>question</code> con condición constante o código tras un <code>flag</code>, y míralo desaparecer de la columna de la derecha.</figcaption>
+</figure>
+
+<h2>Lo que (todavía) no hace</h2>
+
+<p>El optimizador de Wahoo es pequeño a propósito. Los compiladores de producción aplican docenas de pasadas, muchas de ellas una y otra vez. Algunas clásicas, cada una con la oportunidad que aprovecha:</p>
+
+<div class="compare-wrap">
+<table class="compare">
+  <thead><tr><th>Transformación</th><th>Antes</th><th>Después</th></tr></thead>
+  <tbody>
+    <tr><td>Propagación de constantes</td><td><code>coin t = 150</code> … <code>wahoo(t * 2)</code></td><td><code>wahoo(300)</code> si <code>t</code> nunca cambia</td></tr>
+    <tr><td>Subexpresiones comunes</td><td><code>(a + b) * (a + b)</code></td><td>calcular <code>a + b</code> una vez</td></tr>
+    <tr><td>Sacar invariantes de bucles</td><td><code>bounce i &lt; n { wahoo(i * (w * h)) … }</code></td><td>calcular <code>w * h</code> una vez, antes del bucle</td></tr>
+    <tr><td>Reducción de fuerza</td><td><code>i * 8</code> en un bucle</td><td>un desplazamiento, o sumar 8 en cada vuelta</td></tr>
+    <tr><td>Expansión en línea</td><td>una llamada a una pipe corta</td><td>el cuerpo de la pipe, en su sitio, lo que abre la puerta a todas las demás optimizaciones</td></tr>
+    <tr><td>Mirilla (<em>peephole</em>)</td><td><code>i32.gt_s</code> seguido de <code>i32.eqz</code></td><td><code>i32.le_s</code> (¡Wahoo emite esa pareja en cada <code>bounce</code>!)</td></tr>
+    <tr><td>Eliminación de llamadas de cola</td><td>una pipe cuyo último acto es llamarse a sí misma</td><td>un salto al principio: recursión sin que crezca la pila</td></tr>
+    <tr><td>Vectorización</td><td>un bucle que suma dos vectores elemento a elemento</td><td>una instrucción que suma cuatro u ocho elementos a la vez</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Cada una es un buen ejercicio: el patrón de bucle del <a href="@ch:codegen">generador de código</a>, por ejemplo, está pidiendo a gritos la regla de mirilla de la tabla.</p>
+
+<h2>Análisis de flujo de datos</h2>
+
+<p>Plegar <code>2 * 60</code> solo exige mirar un nodo del árbol. Propagar constantes a través de variables, encontrar expresiones calculadas dos veces o variables muertas exige saber cómo <em>fluyen</em> los valores por toda la función, a través de ramas y bucles. Los cimientos los pusieron en IBM <strong>Frances Allen</strong> y John Cocke. El artículo de Allen de 1970, <em>Control Flow Analysis</em>, partía las funciones en <em>bloques básicos</em> (tramos de código en línea recta con una sola entrada y una sola salida) unidos por aristas en un <em>grafo de flujo de control</em>, y en 1971 Allen y Cocke publicaron <em>A Catalogue of Optimizing Transformations</em>, la lista que casi todos los compiladores siguen todavía. En 2006 Allen fue la primera mujer en recibir el premio Turing, por este trabajo.</p>
+
+<p>En 1973 Gary Kildall (más tarde autor del sistema operativo CP/M) unificó los análisis en un único marco: cada uno es un conjunto de hechos que se propaga por el grafo, se combina donde los caminos se juntan y se itera hasta que nada cambia. La teoría de retículos que hay detrás garantiza que la iteración termina. A finales de los ochenta Mark Wegman, Kenneth Zadeck y sus colegas de IBM introdujeron la forma SSA (<a href="@ch:codegen">capítulo 04</a>), que hace muchos de estos análisis más rápidos y sencillos, y que hoy usa casi todo compilador optimizador.</p>
+
+<h2>El lado oscuro: el comportamiento indefinido</h2>
+
+<p>La regla del «como si» solo protege a los programas cuyo comportamiento está definido. C y C++ dejan muchas cosas <em>indefinidas</em>: el desbordamiento de enteros con signo, leer fuera de un vector, desreferenciar un puntero nulo. El compilador puede suponer que nunca ocurren y optimizar en consecuencia. Quien escribe una comprobación de desbordamiento como</p>
+
+<pre class="code-block"><code>if (x + 1 &lt; x) { /* ¡desbordamiento! */ }</code></pre>
+
+<p>puede encontrársela borrada, porque para un <code>int</code> con signo la condición solo puede ser cierta tras un desbordamiento, que «no puede ocurrir». Sorpresas así han causado agujeros de seguridad reales. Wahoo, como Rust en modo release, Java y el propio WebAssembly, <em>define</em> el desbordamiento como una vuelta completa, así que el optimizador no tiene nada que explotar y nadie se lleva sorpresas.</p>
+
+<h2>No hay optimizador perfecto</h2>
+
+<p>¿Podría un compilador suficientemente listo encontrar siempre el programa equivalente más pequeño? No. Si pudiera, dado cualquier programa que nunca imprime y nunca termina, lo convertiría en el programa más pequeño que nunca imprime y nunca termina, un bucle infinito vacío, y comparar salidas decidiría el problema de la parada. Andrew Appel lo llama el <em>teorema del pleno empleo para quienes escriben compiladores</em>: siempre hay un optimizador mejor por escribir. En la práctica los límites son más económicos que matemáticos: cada pasada cuesta tiempo de compilación, y por eso los compiladores ofrecen niveles (de <code>-O0</code> a <code>-O3</code>), los JIT solo optimizan el código caliente (<a href="@ch:execution">capítulo 00</a>) y Wahoo te deja apagarlo y comparar.</p>
+
+<section class="references">
+  <h2>Referencias</h2>
+  <ol>
+    <li>J. W. Backus (1978). “The History of FORTRAN I, II, and III”. <em>ACM SIGPLAN Notices</em>, 13(8).</li>
+    <li>F. E. Allen (1970). “Control Flow Analysis”. <em>ACM SIGPLAN Notices</em>, 5(7).</li>
+    <li>F. E. Allen y J. Cocke (1971). “A Catalogue of Optimizing Transformations”. En <em>Design and Optimization of Compilers</em>, Prentice-Hall.</li>
+    <li>G. A. Kildall (1973). “A Unified Approach to Global Program Optimization”. <em>Proceedings of the 1st ACM Symposium on Principles of Programming Languages</em>.</li>
+    <li>B. K. Rosen, M. N. Wegman y F. K. Zadeck (1988). “Global Value Numbers and Redundant Computations”. <em>Proceedings of POPL</em>.</li>
+    <li>A. W. Appel (1998). <em>Modern Compiler Implementation in ML</em>. Cambridge University Press.</li>
+    <li>C. Lattner (2011). “What Every C Programmer Should Know About Undefined Behavior”. <em>LLVM Project Blog</em>.</li>
+  </ol>
+</section>

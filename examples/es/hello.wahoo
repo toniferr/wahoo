@@ -1,0 +1,4 @@
+// Todo programa empieza en un mundo. Este solo saluda.
+world 1-1 {
+  wahoo("¡Soy yo, Mario!")
+}

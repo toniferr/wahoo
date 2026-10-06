@@ -1,0 +1,13 @@
+// Recursion: every call goes down a new warp pipe and comes back with a value.
+pipe fib(n: coins) -> coins {
+  question n < 2 {
+    flag n
+  }
+  flag fib(n - 1) + fib(n - 2)
+}
+
+world 1-1 {
+  run i from 0 to 10 {
+    wahoo("fib(", i, ") = ", fib(i))
+  }
+}

@@ -1,0 +1,26 @@
+// Una pipe que responde con un switch: star (sí) o goomba (no).
+pipe es_primo(n: coins) -> switch {
+  question n < 2 {
+    flag goomba
+  }
+  coin d = 2
+  bounce d * d <= n {
+    question n % d == 0 {
+      flag goomba
+    }
+    power_up d
+  }
+  flag star
+}
+
+world 1-1 {
+  coin encontradas = 0
+  coin n = 2
+  bounce encontradas < 10 {
+    question es_primo(n) {
+      power_up encontradas
+      wahoo("Estrella nº ", encontradas, ": ", n)
+    }
+    power_up n
+  }
+}

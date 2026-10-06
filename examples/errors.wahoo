@@ -1,0 +1,14 @@
+// This level is full of traps. Try:  wahoo check examples/errors.wahoo
+pipe double(n: int) -> coins {
+  flag n * 2
+}
+
+world 1-1 {
+  coin lives = 3
+  wahoo(lifes)
+  question lives {
+    wahoo("still alive")
+  }
+  coin name = "Mario"
+  wahoo(name + 1)
+}

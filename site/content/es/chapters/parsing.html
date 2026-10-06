@@ -1,0 +1,137 @@
+<!--meta
+{
+  "slug": "analisis-sintactico",
+  "title": "Análisis sintáctico",
+  "chain": "Sintaxis",
+  "headline": "De las palabras a los árboles",
+  "dek": "Los tokens llegan en fila, pero los programas están anidados: expresiones dentro de expresiones, bloques dentro de bucles dentro de funciones. El parser recupera esa estructura en forma de árbol, guiado por una gramática, una idea tomada de la lingüística en los años cincuenta.",
+  "era": "1956 – 1975",
+  "people": ["Noam Chomsky", "John Backus", "Peter Naur", "Donald Knuth", "Vaughan Pratt"],
+  "concepts": ["Gramáticas independientes del contexto", "BNF", "Árboles de sintaxis abstracta", "Descenso recursivo", "Parsing de Pratt", "LL y LR"]
+}
+-->
+
+<p>El lexer entrega una lista: <code>1</code>, <code>+</code>, <code>2</code>, <code>*</code>, <code>3</code>. Cualquier escolar sabe que el resultado es 7 y no 9, porque la multiplicación «va primero». La lista no lo dice. La regla vive en la <em>gramática</em> del lenguaje, y el <strong>analizador sintáctico</strong> (<em>parser</em>) la aplica para construir un árbol en el que <code>2 * 3</code> cuelga por debajo del <code>+</code>. A partir de aquí el compilador ya no vuelve a mirar el texto: trabaja con árboles.</p>
+
+<h2>Gramáticas</h2>
+
+<p>En 1956 el lingüista Noam Chomsky clasificó las formas de describir lenguajes según cuánta memoria necesita una máquina para reconocerlos. Los lenguajes regulares (los del lexer, <a href="@ch:lexing">capítulo 01</a>) necesitan una memoria finita; un nivel más arriba, los lenguajes <strong>independientes del contexto</strong> necesitan una pila y pueden expresar anidamientos de cualquier profundidad. La sintaxis de casi todos los lenguajes de programación se diseña para ser independiente del contexto.</p>
+
+<div class="definition">
+  <span class="th-title">Definición <span class="th-name">(gramática independiente del contexto)</span></span>
+  <p>Una gramática es un conjunto de <strong>reglas</strong> de la forma <code>A := α</code>, donde <code>A</code> es un <em>no terminal</em> (una categoría sintáctica, como «expresión») y <code>α</code> es una secuencia de terminales (tokens) y no terminales. Una frase pertenece al lenguaje si puede <em>derivarse</em> del símbolo inicial sustituyendo repetidamente un no terminal por la parte derecha de una de sus reglas.</p>
+</div>
+
+<p>Tres años después John Backus, recién salido de FORTRAN, necesitaba una forma precisa de definir la sintaxis del nuevo lenguaje internacional ALGOL. Su notación, pulida por Peter Naur como editor del informe de ALGOL 60, se convirtió en la <strong>BNF</strong> (forma de Backus–Naur), y toda definición de lenguaje posterior desciende de ella. Esta es parte de la gramática de Wahoo en su forma extendida, con <code>[ ]</code> para lo opcional y <code>{ }</code> para la repetición:</p>
+
+<pre class="code-block"><code>program  := item*
+item     := 'pipe' NAME '(' [param {',' param}] ')' ['-&gt;' NAME] block
+          | 'world' INT '-' INT block
+block    := '{' stmt* '}'
+stmt     := 'coin' NAME [':' NAME] '=' expr
+          | 'question' expr block ['else' (question | block)]
+          | 'bounce' expr block
+          | 'run' NAME 'from' expr 'to' expr block
+          | 'flag' [expr]
+          | NAME '=' expr
+          | call
+expr     := or
+or       := and {'or' and}
+and      := not {'and' not}
+not      := 'not' not | cmp
+cmp      := sum [('==' | '!=' | '&lt;' | '&lt;=' | '&gt;' | '&gt;=') sum]
+sum      := term {('+' | '-') term}
+term     := unary {('*' | '/' | '%') unary}
+unary    := '-' unary | primary
+primary  := INT | TEXT | 'star' | 'goomba' | call | NAME | '(' expr ')'</code></pre>
+
+<p>Lee las reglas de las expresiones de arriba abajo: cada nivel se construye con el de debajo, así que cuanto más abajo está una regla, más fuerte ligan sus operadores. Ese escalonamiento <em>es</em> la tabla de precedencias, escrita como gramática.</p>
+
+<h2>Árboles de análisis y árboles de sintaxis abstracta</h2>
+
+<p>Una derivación puede dibujarse como un <strong>árbol de análisis</strong>, con un nodo por cada regla aplicada. Lo registra todo, incluidos los paréntesis y la cadena <code>expr → or → and → not → cmp → sum</code> por la que pasa un número solitario. Los compiladores guardan una versión más delgada, el <strong>árbol de sintaxis abstracta</strong> (AST): un nodo por cada construcción que significa algo, sin puntuación ni agrupaciones, porque la forma del árbol ya las codifica. En la figura, <code>(1 + 2) * 3</code> no tiene nodo de paréntesis; el <code>+</code> simplemente está debajo del <code>*</code>.</p>
+
+<figure class="demo" data-demo="parsing/tree">
+  <figcaption>Escribe una expresión y el parser de verdad construye su árbol. La línea sobre el árbol muestra cómo ha agrupado los operadores, con todos los paréntesis implícitos a la vista. Compara <code>1 + 2 * 3</code> con <code>(1 + 2) * 3</code>, comprueba que <code>10 - 4 - 3</code> se agrupa por la izquierda, que <code>not</code> liga menos que las comparaciones, y qué pasa con <code>1 &lt; 2 &lt; 3</code>.</figcaption>
+</figure>
+
+<h2>Ambigüedad, precedencia y asociatividad</h2>
+
+<p>La gramática obvia para la aritmética, <code>expr := expr op expr | INT</code>, es <strong>ambigua</strong>: <code>10 - 4 - 3</code> tiene dos árboles, uno que significa <code>(10 - 4) - 3 = 3</code> y otro <code>10 - (4 - 3) = 9</code>. Un lenguaje tiene que elegir, y dos datos zanjan todos los casos:</p>
+
+<ul>
+  <li>La <strong>precedencia</strong> dice qué operadores ligan más: <code>*</code> antes que <code>+</code>, ambos antes que <code>&lt;</code>, este antes que <code>and</code>, y este antes que <code>or</code>.</li>
+  <li>La <strong>asociatividad</strong> dice cómo agrupar una cadena de operadores del mismo nivel: por la izquierda para <code>-</code> y <code>/</code> (así <code>10 - 4 - 3 = 3</code>), por la derecha para la potencia en los lenguajes que la tienen (<code>2 ** 3 ** 2 = 2 ** 9</code> en Python).</li>
+</ul>
+
+<p>La ambigüedad más famosa del diseño de lenguajes es el <em>else colgante</em>: en <code>if a if b x else y</code>, ¿a qué <code>if</code> pertenece el <code>else</code>? C y Java dicen «al más cercano». Wahoo esquiva la pregunta haciendo obligatorias las llaves: <code>question a { question b { x } else { y } }</code> solo puede leerse de una manera.</p>
+
+<p>Las comparaciones merecen una decisión especial. En C, <code>1 &lt; 2 &lt; 3</code> es legal y significa <code>(1 &lt; 2) &lt; 3</code>, es decir <code>1 &lt; 3</code>, que es cierto por casualidad; <code>3 &gt; 2 &gt; 1</code> es falso por la misma razón. Python lo lee como <code>1 &lt; 2 and 2 &lt; 3</code>. Wahoo lo rechaza (error E102) y te pide que escribas el <code>and</code>.</p>
+
+<h2>Descenso recursivo</h2>
+
+<p>La forma más natural de escribir un parser a mano es convertir cada regla de la gramática en una función. <code>block</code> espera una <code>{</code> y luego llama a <code>stmt</code> hasta ver una <code>}</code>; <code>stmt</code> mira el siguiente token y decide qué regla aplicar; <code>question</code> llama a <code>expr</code> y luego a <code>block</code>. Las funciones se llaman unas a otras recursivamente igual que las reglas se refieren unas a otras, y la pila de llamadas hace el papel de la pila que necesitan los lenguajes independientes del contexto. Es el <strong>descenso recursivo</strong>, y así analizan GCC, Clang, rustc, Go, V8 y Wahoo.</p>
+
+<p>Funciona con soltura cuando basta un token de anticipación para elegir la regla, una propiedad llamada <strong>LL(1)</strong>. Las sentencias de Wahoo se diseñaron para ello: cada una empieza por su propia palabra clave, salvo la asignación y las llamadas, que empiezan ambas por un nombre y se distinguen por el token siguiente (<code>=</code> o <code>(</code>). Lo único que el descenso recursivo no puede hacer es la <em>recursión por la izquierda</em>: una regla <code>sum := sum '+' term</code> haría que <code>sum</code> se llamara a sí misma antes de consumir nada, para siempre. Por eso la gramática de arriba usa repetición, <code>sum := term {'+' term}</code>, y construye en un bucle el árbol inclinado a la izquierda.</p>
+
+<h2>El parsing de Pratt</h2>
+
+<p>Ocho niveles de reglas de expresión suponen ocho llamadas anidadas solo para analizar el número <code>3</code>. En 1973 Vaughan Pratt propuso un método más limpio, la <em>precedencia de operadores descendente</em>: dar a cada operador infijo dos números, una <strong>potencia de ligadura izquierda y otra derecha</strong>, y analizar todas las expresiones con un único bucle.</p>
+
+<table class="compare">
+  <thead><tr><th>Operadores</th><th>Potencia izquierda</th><th>Potencia derecha</th><th>Efecto</th></tr></thead>
+  <tbody>
+    <tr><td><code>or</code></td><td>1</td><td>2</td><td>el más débil, asociativo por la izquierda</td></tr>
+    <tr><td><code>and</code></td><td>3</td><td>4</td><td>asociativo por la izquierda</td></tr>
+    <tr><td><code>not</code> (prefijo)</td><td>—</td><td>5</td><td>se aplica a una comparación entera</td></tr>
+    <tr><td><code>== != &lt; &lt;= &gt; &gt;=</code></td><td>7</td><td>8</td><td>no encadenables (se comprueba aparte)</td></tr>
+    <tr><td><code>+ -</code></td><td>9</td><td>10</td><td>asociativos por la izquierda</td></tr>
+    <tr><td><code>* / %</code></td><td>11</td><td>12</td><td>asociativos por la izquierda</td></tr>
+    <tr><td><code>-</code> (prefijo)</td><td>—</td><td>13</td><td>el que más liga</td></tr>
+  </tbody>
+</table>
+
+<p>El parser lee un operando y mira el operador siguiente. Si su potencia izquierda llega al mínimo que le pidieron, toma el operador y analiza el lado derecho con la potencia <em>derecha</em> del operador como nuevo mínimo; si no, se detiene y devuelve lo que tiene. Una potencia derecha una unidad mayor que la izquierda hace que una cadena se agrupe por la izquierda; potencias iguales la agruparían por la derecha. Este es el corazón del parser de expresiones de Wahoo:</p>
+
+<pre class="code-block"><code>fn expr_bp(&amp;mut self, min_power: u8) -&gt; PResult&lt;Expr&gt; {
+    let mut lhs = self.prefix()?;                      // un número, un nombre, (…), -x, not x
+    while let Some((op, left, right)) = infix(&amp;self.peek().kind) {
+        if left &lt; min_power {
+            break;                                     // liga demasiado poco: que lo tome quien llamó
+        }
+        self.advance();
+        let rhs = self.expr_bp(right)?;
+        lhs = Expr::binary(op, lhs, rhs);
+    }
+    Ok(lhs)
+}</code></pre>
+
+<h2>Análisis ascendente: LL frente a LR</h2>
+
+<p>El descenso recursivo construye el árbol desde la raíz hacia abajo, prediciendo qué regla viene: es un parser <em>descendente</em>, LL. La otra gran familia trabaja <em>de abajo arriba</em>: va apilando tokens y, cuando la cima de la pila coincide con la parte derecha de una regla, la reduce al no terminal de esa regla. En 1965 Donald Knuth definió las gramáticas <strong>LR(k)</strong> que pueden analizarse así de forma determinista, una clase estrictamente mayor que LL(k) que incluye reglas recursivas por la izquierda. Las tablas eran enormes para los ordenadores de la época, hasta que el LALR(1) de Frank DeRemer (1969) las hizo prácticas. En 1975 el <strong>Yacc</strong> de Stephen Johnson (<em>Yet Another Compiler-Compiler</em>) generaba parsers LALR a partir de un fichero de gramática, y su descendiente Bison todavía se usa.</p>
+
+<p>Los generadores no ganaron en todas partes. Los mensajes de error de los parsers guiados por tablas suelen ser pobres («error de sintaxis cerca de la línea 12»), y las gramáticas de los lenguajes reales están llenas de casos especiales. GCC sustituyó en 2004 su parser de C++ hecho con Bison por uno de descenso recursivo escrito a mano, e hizo lo mismo con el de C dos años después. Los generadores prosperan en otros sitios: ANTLR para herramientas y lenguajes de dominio específico, y tree-sitter (2018), que analiza de forma incremental mientras escribes y da sus árboles sintácticos a editores como Neovim y al visor de código de GitHub.</p>
+
+<h2>Cuando el análisis falla</h2>
+
+<p>Un parser que se detiene en el primer error de sintaxis es fácil de escribir y molesto de usar. El de Wahoo usa la <strong>recuperación en modo pánico</strong>: tras informar de un error, se salta tokens hasta llegar a un punto seguro, el comienzo de una línea que empieza una sentencia o la <code>}</code> que cierra el bloque actual, y continúa desde ahí. Así una errata en la línea 3 y otra en la 9 se informan en la misma pasada. Una heurística más atrapa el despiste más común de todos, una <code>}</code> olvidada: si aparece un <code>pipe</code> o un <code>world</code> nuevo al principio de una línea dentro de un bloque, el bloque se cierra ahí y el error lo señala.</p>
+
+<pre class="code-block"><code>error[E101]: se esperaba `}`, pero hay `world`
+ --&gt; nivel.wahoo:5:1
+  |
+5 | world 1-1 {
+  | ^^^^^ Lakitu ha perdido el hilo aquí</code></pre>
+
+<p>Recuperarse es cuestión de criterio, no de teoría: si se salta demasiado poco, un error produce una cascada de errores falsos; si se salta demasiado, se pierden errores reales. Wahoo además se detiene tras veinte errores, porque para entonces los últimos suelen ser ecos del primero. Pero que un programa se analice bien no significa que sea correcto: <code>wahoo(vida)</code> es gramatical aunque nadie haya declarado nunca <code>vida</code>. El significado es asunto del capítulo siguiente.</p>
+
+<section class="references">
+  <h2>Referencias</h2>
+  <ol>
+    <li>N. Chomsky (1956). “Three Models for the Description of Language”. <em>IRE Transactions on Information Theory</em>, 2(3).</li>
+    <li>J. W. Backus (1959). “The Syntax and Semantics of the Proposed International Algebraic Language of the Zurich ACM-GAMM Conference”. <em>Proceedings of the International Conference on Information Processing</em>, UNESCO.</li>
+    <li>P. Naur (ed.) (1960). “Report on the Algorithmic Language ALGOL 60”. <em>Communications of the ACM</em>, 3(5).</li>
+    <li>D. E. Knuth (1965). “On the Translation of Languages from Left to Right”. <em>Information and Control</em>, 8(6).</li>
+    <li>V. R. Pratt (1973). “Top Down Operator Precedence”. <em>Proceedings of the 1st ACM Symposium on Principles of Programming Languages</em>.</li>
+    <li>S. C. Johnson (1975). <em>Yacc: Yet Another Compiler-Compiler</em>. Bell Laboratories Computing Science Technical Report 32.</li>
+  </ol>
+</section>

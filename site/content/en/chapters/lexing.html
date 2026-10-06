@@ -1,0 +1,113 @@
+<!--meta
+{
+  "slug": "lexing",
+  "title": "Lexical analysis",
+  "chain": "Lex",
+  "headline": "From characters to words",
+  "dek": "To a compiler, a program arrives as a long string of characters. The first phase, the lexer, reads them one by one and groups them into tokens: keywords, names, numbers, symbols. It is the simplest phase, and it rests on one of the cleanest results in computer science.",
+  "era": "1956 – 1975",
+  "people": ["Stephen Kleene", "Ken Thompson", "Mike Lesk", "Eric Schmidt"],
+  "concepts": ["Tokens and lexemes", "Regular expressions", "Finite automata", "Maximal munch", "Error recovery"]
+}
+-->
+
+<p>Open a <code>.wahoo</code> file in a hex editor and the illusion disappears: there are no lines, no keywords, no indentation, only a sequence of bytes, one of which happens to be the newline character. When we read <code>coin lives = 3</code> we see four words at a glance. A compiler has to discover them, and the part of it that does so is the <strong>lexer</strong> (also called <em>scanner</em> or <em>tokenizer</em>).</p>
+
+<p>Its job is modest: walk the characters from left to right, group them into the smallest units that mean something, label each unit, and throw away what does not matter to the language (spaces, comments). Everything later in the compiler works on that list of labelled units instead of on raw text, which makes it much simpler.</p>
+
+<h2>Tokens, lexemes and classes</h2>
+
+<div class="definition">
+  <span class="th-title">Definition <span class="th-name">(token)</span></span>
+  <p>A <strong>lexeme</strong> is a piece of the source text, such as <code>lives</code> or <code>&lt;=</code>. A <strong>token</strong> is a lexeme together with its <em>class</em> (keyword, name, number, text, symbol) and its position in the file. The parser looks only at classes and values; positions are kept for error messages.</p>
+</div>
+
+<p>Wahoo has five classes of token:</p>
+
+<ul>
+  <li><strong>Keywords</strong>, 18 reserved words: <code>world pipe coin power_up damage by question else bounce run from to flag star goomba and or not</code>.</li>
+  <li><strong>Names</strong>: a letter or underscore followed by letters, digits or underscores (<code>lives</code>, <code>is_prime</code>, <code>_tmp</code>). Type names such as <code>coins</code> are ordinary names; the checker, not the lexer, knows they denote types.</li>
+  <li><strong>Numbers</strong>: decimal digits, with optional underscores for readability (<code>1_000</code>), up to 2147483647.</li>
+  <li><strong>Text</strong>: characters between double quotes, with the escapes <code>\n \t \" \\</code>.</li>
+  <li><strong>Symbols</strong>: <code>( ) { } , : -&gt; = + - * / % == != &lt; &lt;= &gt; &gt;=</code>.</li>
+</ul>
+
+<figure class="demo" data-demo="lexing/tokens">
+  <figcaption>The real lexer, live. Type anything: each box is one token, with its class underneath, and a new row starts where the source starts a new line. Comments and spaces produce nothing. Try <code>3lives</code>, an unclosed <code>"text</code>, a <code>@</code> or <code>99999999999</code> to see lexical errors; the lexer reports them and keeps going.</figcaption>
+</figure>
+
+<h2>Regular expressions and finite automata</h2>
+
+<p>Each token class can be described by a <strong>regular expression</strong>, a pattern built from single characters with three operations: concatenation (one thing then another), alternation (<code>|</code>, one thing or another) and repetition (<code>*</code>, zero or more times):</p>
+
+<pre class="code-block"><code>name    = [A-Za-z_] [A-Za-z0-9_]*
+number  = [0-9] [0-9_]*
+text    = " ( [^"\\\n] | \\ . )* "
+le      = &lt; =</code></pre>
+
+<p>In 1951 Stephen Kleene, studying what McCulloch and Pitts's model of neurons could recognise, proved that the languages described by regular expressions are exactly those recognised by <strong>finite automata</strong>: machines with a fixed, finite set of states that read one character at a time and move from state to state. There is no memory beyond the current state, which is precisely why a lexer can be so fast: one table lookup per character. (Its limits too: a finite automaton cannot check that parentheses are balanced, which is why structure is left to the <a href="@ch:parsing">parser</a>. The sister site <a href="https://toniferr.github.io/math-of-ai/automata/">Math of AI</a> has interactive automata and the pumping lemma that proves it.)</p>
+
+<div class="theorem">
+  <span class="th-title">Theorem <span class="th-name">(Kleene, 1956)</span></span>
+  <p>A language can be described by a regular expression if and only if it is recognised by a finite automaton. Moreover, the translation works in both directions, mechanically.</p>
+</div>
+
+<p>That “mechanically” is what made lexer generators possible. Ken Thompson's 1968 construction turns a regular expression into a nondeterministic automaton with a handful of states per symbol; the <em>subset construction</em> turns that into a deterministic one; and a table-driven loop runs it. In 1975 Mike Lesk and Eric Schmidt (then an intern at Bell Labs, later CEO of Google) wrote <strong>Lex</strong>, which takes a list of regular expressions with actions and generates the C code for a complete lexer. Its descendant Flex is still in use.</p>
+
+<h2>Longest match wins</h2>
+
+<p>Regular expressions alone leave ambiguities. Is <code>&lt;=</code> one token or <code>&lt;</code> followed by <code>=</code>? Is <code>power_up</code> a keyword, or the name <code>power</code> followed by <code>_up</code>? Lexers resolve them with two rules:</p>
+
+<ol>
+  <li><strong>Maximal munch</strong>: at each position, take the <em>longest</em> lexeme that matches any class. So <code>&lt;=</code> is a single token and <code>coins</code> is the name <code>coins</code>, not the keyword <code>coin</code> plus an <code>s</code>.</li>
+  <li><strong>Priority</strong>: if two classes match the same longest lexeme, the earlier one wins. Wahoo scans every word as a name and then looks it up in the keyword table, which amounts to “keywords before names”.</li>
+</ol>
+
+<aside class="note">Maximal munch can bite. Before C++11, <code>vector&lt;vector&lt;int&gt;&gt;</code> was a syntax error, because the lexer saw <code>&gt;&gt;</code>, the shift operator, and programmers had to write <code>&gt; &gt;</code> with a space.</aside>
+
+<p>Wahoo's lexer is written by hand, like those of Clang, rustc, Go and V8: a hand-written scanner is easy to make fast and makes it easy to give good error messages. Here is how it handles the symbols that can be one or two characters long; it peeks at the next character before deciding:</p>
+
+<pre class="code-block"><code>let kind = match (c, next) {
+    ('-', Some('&gt;')) =&gt; two(self, TokenKind::Arrow),   // ->
+    ('=', Some('=')) =&gt; two(self, TokenKind::EqEq),    // ==
+    ('&lt;', Some('=')) =&gt; two(self, TokenKind::Le),      // &lt;=
+    ('&lt;', _) =&gt; TokenKind::Lt,                         // &lt;
+    ('=', _) =&gt; TokenKind::Assign,                     // =
+    // ...
+    _ =&gt; { self.error(Kind::UnexpectedChar(c), start); return; }
+};</code></pre>
+
+<h2>When line breaks matter</h2>
+
+<p>Most languages treat a newline as just more white space. Some do not. Python's lexer emits <code>INDENT</code> and <code>DEDENT</code> tokens when indentation changes, so the parser sees blocks as if they had braces. Go's lexer inserts a semicolon at the end of a line that ends with a name, a literal or a closing bracket. JavaScript's parser inserts missing semicolons too, with a famous trap: a <code>return</code> followed by a line break returns <code>undefined</code>, whatever comes on the next line.</p>
+
+<p>Wahoo takes a lighter approach: every token carries a flag saying whether it is the first one on its line. The parser uses it in exactly two places. A <code>flag</code> only takes a value from the same line, so</p>
+
+<pre class="wahoo">flag
+wahoo("done")</pre>
+
+<p>is a <code>flag</code> with no value followed by a print, not a <code>flag</code> returning the result of the print. And a name followed by <code>(</code> is only a call when both are on the same line.</p>
+
+<h2>Lexical errors</h2>
+
+<p>Few things can go wrong at this level: a character that belongs to no token (<code>@</code>, <code>;</code>), a text that never closes, an escape the language does not know, a number too big for 32 bits, digits glued to letters (<code>3lives</code>). The interesting decision is what to do next. Stopping at the first error is simple but frustrating, so Wahoo's lexer reports the problem, skips the offending character and carries on, so that one stray character does not hide everything after it. It also knows a few habits from other languages and turns them into hints: a <code>!</code> suggests <code>not</code>, a <code>;</code> explains that statements end at the line break, a single quote that texts use double quotes.</p>
+
+<pre class="code-block"><code>error[E001]: unexpected character `!`
+ --&gt; game.wahoo:3:12
+  |
+3 |   question !alive {
+  |            ^ Toad can't read this
+  = hint: negation is written `not`</code></pre>
+
+<p>With the characters grouped into words, the compiler can start asking how the words fit together. That is the parser's job.</p>
+
+<section class="references">
+  <h2>References</h2>
+  <ol>
+    <li>S. C. Kleene (1956). “Representation of Events in Nerve Nets and Finite Automata”. In <em>Automata Studies</em>, Princeton University Press (first circulated as a RAND report in 1951).</li>
+    <li>R. McNaughton and H. Yamada (1960). “Regular Expressions and State Graphs for Automata”. <em>IRE Transactions on Electronic Computers</em>, EC-9(1).</li>
+    <li>K. Thompson (1968). “Regular Expression Search Algorithm”. <em>Communications of the ACM</em>, 11(6).</li>
+    <li>M. E. Lesk and E. Schmidt (1975). <em>Lex — A Lexical Analyzer Generator</em>. Bell Laboratories Computing Science Technical Report 39.</li>
+    <li>A. V. Aho, M. S. Lam, R. Sethi and J. D. Ullman (2006). <em>Compilers: Principles, Techniques, and Tools</em>, 2nd ed., chapter 3. Addison-Wesley.</li>
+  </ol>
+</section>

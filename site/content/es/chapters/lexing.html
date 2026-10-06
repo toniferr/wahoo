@@ -1,0 +1,113 @@
+<!--meta
+{
+  "slug": "analisis-lexico",
+  "title": "Análisis léxico",
+  "chain": "Léxico",
+  "headline": "De los caracteres a las palabras",
+  "dek": "Para un compilador, un programa llega como una larga ristra de caracteres. La primera fase, el analizador léxico, los lee uno a uno y los agrupa en tokens: palabras clave, nombres, números, símbolos. Es la fase más sencilla, y descansa sobre uno de los resultados más limpios de la informática.",
+  "era": "1956 – 1975",
+  "people": ["Stephen Kleene", "Ken Thompson", "Mike Lesk", "Eric Schmidt"],
+  "concepts": ["Tokens y lexemas", "Expresiones regulares", "Autómatas finitos", "La coincidencia más larga", "Recuperación de errores"]
+}
+-->
+
+<p>Abre un fichero <code>.wahoo</code> con un editor hexadecimal y la ilusión desaparece: no hay líneas, ni palabras clave, ni sangrías, solo una secuencia de bytes, uno de los cuales resulta ser el carácter de salto de línea. Cuando leemos <code>coin vidas = 3</code> vemos cuatro palabras de un vistazo. Un compilador tiene que descubrirlas, y la parte que lo hace es el <strong>analizador léxico</strong> (también llamado <em>lexer</em>, <em>scanner</em> o <em>tokenizador</em>).</p>
+
+<p>Su trabajo es modesto: recorrer los caracteres de izquierda a derecha, agruparlos en las unidades más pequeñas que significan algo, etiquetar cada unidad y desechar lo que al lenguaje no le importa (espacios, comentarios). Todo lo que viene después en el compilador trabaja con esa lista de unidades etiquetadas en vez de con texto en bruto, y eso lo simplifica muchísimo.</p>
+
+<h2>Tokens, lexemas y clases</h2>
+
+<div class="definition">
+  <span class="th-title">Definición <span class="th-name">(token)</span></span>
+  <p>Un <strong>lexema</strong> es un trozo del texto fuente, como <code>vidas</code> o <code>&lt;=</code>. Un <strong>token</strong> es un lexema junto con su <em>clase</em> (palabra clave, nombre, número, texto, símbolo) y su posición en el fichero. El parser solo mira clases y valores; las posiciones se guardan para los mensajes de error.</p>
+</div>
+
+<p>Wahoo tiene cinco clases de token:</p>
+
+<ul>
+  <li><strong>Palabras clave</strong>, 18 palabras reservadas: <code>world pipe coin power_up damage by question else bounce run from to flag star goomba and or not</code>.</li>
+  <li><strong>Nombres</strong>: una letra o guion bajo seguidos de letras, cifras o guiones bajos (<code>vidas</code>, <code>es_primo</code>, <code>_tmp</code>). Los nombres de tipo como <code>coins</code> son nombres corrientes; es el comprobador, no el lexer, quien sabe que denotan tipos.</li>
+  <li><strong>Números</strong>: cifras decimales, con guiones bajos opcionales para leerlos mejor (<code>1_000</code>), hasta 2147483647.</li>
+  <li><strong>Texto</strong>: caracteres entre comillas dobles, con los escapes <code>\n \t \" \\</code>.</li>
+  <li><strong>Símbolos</strong>: <code>( ) { } , : -&gt; = + - * / % == != &lt; &lt;= &gt; &gt;=</code>.</li>
+</ul>
+
+<figure class="demo" data-demo="lexing/tokens">
+  <figcaption>El lexer de verdad, en vivo. Escribe lo que quieras: cada caja es un token, con su clase debajo, y empieza una fila nueva donde el código empieza una línea nueva. Los comentarios y los espacios no producen nada. Prueba <code>3vidas</code>, un <code>"texto</code> sin cerrar, una <code>@</code> o <code>99999999999</code> para ver errores léxicos; el lexer los informa y sigue adelante.</figcaption>
+</figure>
+
+<h2>Expresiones regulares y autómatas finitos</h2>
+
+<p>Cada clase de token puede describirse con una <strong>expresión regular</strong>, un patrón construido a partir de caracteres sueltos con tres operaciones: concatenación (una cosa y luego otra), alternativa (<code>|</code>, una cosa u otra) y repetición (<code>*</code>, cero o más veces):</p>
+
+<pre class="code-block"><code>nombre  = [A-Za-z_] [A-Za-z0-9_]*
+número  = [0-9] [0-9_]*
+texto   = " ( [^"\\\n] | \\ . )* "
+le      = &lt; =</code></pre>
+
+<p>En 1951 Stephen Kleene, estudiando qué podía reconocer el modelo de neuronas de McCulloch y Pitts, demostró que los lenguajes que describen las expresiones regulares son exactamente los que reconocen los <strong>autómatas finitos</strong>: máquinas con un conjunto fijo y finito de estados que leen un carácter cada vez y pasan de un estado a otro. No tienen más memoria que el estado actual, y precisamente por eso un lexer puede ser tan rápido: una consulta a una tabla por carácter. (También por eso tiene límites: un autómata finito no puede comprobar que los paréntesis están equilibrados, y la estructura se deja al <a href="@ch:parsing">parser</a>. La web hermana <a href="https://toniferr.github.io/math-of-ai/es/automatas/">Math of AI</a> tiene autómatas interactivos y el lema de bombeo que lo demuestra.)</p>
+
+<div class="theorem">
+  <span class="th-title">Teorema <span class="th-name">(Kleene, 1956)</span></span>
+  <p>Un lenguaje puede describirse con una expresión regular si y solo si lo reconoce un autómata finito. Además, la traducción funciona en ambos sentidos, de forma mecánica.</p>
+</div>
+
+<p>Ese «de forma mecánica» es lo que hizo posibles los generadores de analizadores léxicos. La construcción de Ken Thompson (1968) convierte una expresión regular en un autómata no determinista con unos pocos estados por símbolo; la <em>construcción de subconjuntos</em> lo convierte en uno determinista; y un bucle guiado por tablas lo ejecuta. En 1975 Mike Lesk y Eric Schmidt (entonces becario en los Bell Labs y años después consejero delegado de Google) escribieron <strong>Lex</strong>, que recibe una lista de expresiones regulares con sus acciones y genera el código C de un lexer completo. Su descendiente, Flex, todavía se usa.</p>
+
+<h2>Gana la coincidencia más larga</h2>
+
+<p>Las expresiones regulares por sí solas dejan ambigüedades. ¿<code>&lt;=</code> es un token, o <code>&lt;</code> seguido de <code>=</code>? ¿<code>power_up</code> es una palabra clave, o el nombre <code>power</code> seguido de <code>_up</code>? Los lexers las resuelven con dos reglas:</p>
+
+<ol>
+  <li><strong>La coincidencia más larga</strong> (<em>maximal munch</em>): en cada posición se toma el lexema <em>más largo</em> que encaje con alguna clase. Así <code>&lt;=</code> es un único token y <code>coins</code> es el nombre <code>coins</code>, no la palabra clave <code>coin</code> más una <code>s</code>.</li>
+  <li><strong>Prioridad</strong>: si dos clases encajan con el mismo lexema más largo, gana la primera. Wahoo lee cada palabra como un nombre y luego la busca en la tabla de palabras clave, lo que equivale a «palabras clave antes que nombres».</li>
+</ol>
+
+<aside class="note">La coincidencia más larga puede morder. Antes de C++11, <code>vector&lt;vector&lt;int&gt;&gt;</code> era un error de sintaxis, porque el lexer veía <code>&gt;&gt;</code>, el operador de desplazamiento, y había que escribir <code>&gt; &gt;</code> con un espacio.</aside>
+
+<p>El lexer de Wahoo está escrito a mano, como los de Clang, rustc, Go y V8: un analizador escrito a mano es fácil de hacer rápido y permite dar buenos mensajes de error. Así trata los símbolos que pueden tener uno o dos caracteres; mira el carácter siguiente antes de decidir:</p>
+
+<pre class="code-block"><code>let kind = match (c, next) {
+    ('-', Some('&gt;')) =&gt; two(self, TokenKind::Arrow),   // ->
+    ('=', Some('=')) =&gt; two(self, TokenKind::EqEq),    // ==
+    ('&lt;', Some('=')) =&gt; two(self, TokenKind::Le),      // &lt;=
+    ('&lt;', _) =&gt; TokenKind::Lt,                         // &lt;
+    ('=', _) =&gt; TokenKind::Assign,                     // =
+    // ...
+    _ =&gt; { self.error(Kind::UnexpectedChar(c), start); return; }
+};</code></pre>
+
+<h2>Cuando importan los saltos de línea</h2>
+
+<p>La mayoría de los lenguajes tratan un salto de línea como un espacio más. Algunos no. El lexer de Python emite tokens <code>INDENT</code> y <code>DEDENT</code> cuando cambia la sangría, de modo que el parser ve los bloques como si tuvieran llaves. El de Go inserta un punto y coma al final de una línea que acaba en un nombre, un literal o un cierre de paréntesis. El parser de JavaScript también inserta los puntos y coma que faltan, con una trampa famosa: un <code>return</code> seguido de un salto de línea devuelve <code>undefined</code>, venga lo que venga en la línea siguiente.</p>
+
+<p>Wahoo opta por algo más ligero: cada token lleva una marca que dice si es el primero de su línea. El parser la usa exactamente en dos sitios. Un <code>flag</code> solo toma un valor de su misma línea, así que</p>
+
+<pre class="wahoo">flag
+wahoo("hecho")</pre>
+
+<p>es un <code>flag</code> sin valor seguido de una impresión, no un <code>flag</code> que devuelve el resultado de imprimir. Y un nombre seguido de <code>(</code> solo es una llamada cuando ambos están en la misma línea.</p>
+
+<h2>Errores léxicos</h2>
+
+<p>A este nivel pueden ir mal pocas cosas: un carácter que no pertenece a ningún token (<code>@</code>, <code>;</code>), un texto que nunca se cierra, un escape que el lenguaje no conoce, un número demasiado grande para 32 bits, cifras pegadas a letras (<code>3vidas</code>). La decisión interesante es qué hacer a continuación. Parar en el primer error es sencillo pero frustrante, así que el lexer de Wahoo informa del problema, se salta el carácter culpable y continúa, para que un carácter perdido no oculte todo lo que viene detrás. También conoce algunas costumbres de otros lenguajes y las convierte en pistas: una <code>!</code> sugiere <code>not</code>, un <code>;</code> explica que las sentencias acaban en el salto de línea, una comilla simple que el texto va entre comillas dobles.</p>
+
+<pre class="code-block"><code>error[E001]: carácter inesperado `!`
+ --&gt; partida.wahoo:3:12
+  |
+3 |   question !vivo {
+  |            ^ Toad no sabe leer esto
+  = pista: la negación se escribe `not`</code></pre>
+
+<p>Con los caracteres agrupados en palabras, el compilador puede empezar a preguntarse cómo encajan las palabras entre sí. Ese es el trabajo del parser.</p>
+
+<section class="references">
+  <h2>Referencias</h2>
+  <ol>
+    <li>S. C. Kleene (1956). “Representation of Events in Nerve Nets and Finite Automata”. En <em>Automata Studies</em>, Princeton University Press (circuló antes como informe de RAND en 1951).</li>
+    <li>R. McNaughton y H. Yamada (1960). “Regular Expressions and State Graphs for Automata”. <em>IRE Transactions on Electronic Computers</em>, EC-9(1).</li>
+    <li>K. Thompson (1968). “Regular Expression Search Algorithm”. <em>Communications of the ACM</em>, 11(6).</li>
+    <li>M. E. Lesk y E. Schmidt (1975). <em>Lex — A Lexical Analyzer Generator</em>. Bell Laboratories Computing Science Technical Report 39.</li>
+    <li>A. V. Aho, M. S. Lam, R. Sethi y J. D. Ullman (2006). <em>Compilers: Principles, Techniques, and Tools</em>, 2.ª ed., capítulo 3. Addison-Wesley.</li>
+  </ol>
+</section>

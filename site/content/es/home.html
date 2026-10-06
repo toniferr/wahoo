@@ -1,0 +1,42 @@
+<p class="kicker">Compiladores e intérpretes, desde el Reino Champiñón</p>
+<h1 class="hero-title"><span class="hero-block" aria-hidden="true">?</span>¡Wahoo! Cómo funciona un compilador</h1>
+<div class="coin-trail" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+<p class="lead">Todo programa que has ejecutado empezó siendo texto. Algo tuvo que convertir ese texto en las conmutaciones eléctricas de un procesador: un compilador, un intérprete o, más a menudo de lo que parece, una cadena de ambos. Esta web sigue ese viaje paso a paso con <strong>Wahoo</strong>, un pequeño lenguaje del Reino Champiñón cuyo compilador de verdad se ejecuta en tu navegador.</p>
+
+<p class="cta-row"><a class="cta primary" href="@ch:execution">Empezar por el principio →</a><a class="cta" href="@playground">Abrir el playground</a><a class="cta" href="@reference">Aprende Wahoo en cinco minutos</a></p>
+
+<figure class="demo" data-demo="home/try">
+  <figcaption>Un programa en Wahoo. <code>world 1-1</code> es donde empieza, <code>coin</code> declara una variable, <code>run</code> es un bucle que cuenta, <code>power_up</code> suma a un contador, <code>question</code> es un <em>if</em> y <code>wahoo(...)</code> imprime. Pulsa Ejecutar: el texto pasa por el análisis léxico y sintáctico, la comprobación de tipos y el optimizador, y se convierte en WebAssembly gracias a un compilador escrito en Rust que, a su vez, se está ejecutando aquí como WebAssembly.</figcaption>
+</figure>
+
+<h2>El viaje en una imagen</h2>
+
+<p>Un compilador es una cadena de montaje. Cada etapa recibe el programa con una forma y se lo pasa a la siguiente con otra un poco más cercana a la máquina: los caracteres se convierten en <em>tokens</em>, los tokens en un <em>árbol</em>, el árbol adquiere <em>significado</em> (nombres resueltos, tipos comprobados), el significado se convierte en <em>instrucciones</em>, las instrucciones se hacen <em>más rápidas</em> y, por último, algo las <em>ejecuta</em>. Los capítulos siguen ese orden:</p>
+
+<!--chain-->
+
+<h2>¿Compilado, interpretado… o las dos cosas?</h2>
+
+<p>«Python es interpretado y C es compilado» es una de esas frases que son verdad a medias. Python se compila a bytecode antes de ejecutarse; Java se compila dos veces; JavaScript empieza interpretado y se recompila a código máquina mientras se ejecuta; TypeScript se compila a otro lenguaje de programación. El <a href="@ch:execution">capítulo 00</a> desmonta una docena de lenguajes reales y muestra en qué punto de cada uno el texto deja de ser texto. El resto de la web construye un compilador completo, fase a fase, para que cada palabra de esos diagramas tenga un significado concreto que puedas inspeccionar.</p>
+
+<div class="compare-wrap"><table class="compare">
+  <thead><tr><th>Fase</th><th>Pregunta que responde</th><th>En el compilador de Wahoo</th><th>Dónde</th></tr></thead>
+  <tbody>
+    <tr><td>Análisis léxico</td><td>¿Qué palabras hay en este texto?</td><td><code>lexer.rs</code>: caracteres → tokens</td><td><a href="@ch:lexing">01</a></td></tr>
+    <tr><td>Análisis sintáctico</td><td>¿Cómo encajan las palabras?</td><td><code>parser.rs</code>: tokens → árbol sintáctico</td><td><a href="@ch:parsing">02</a></td></tr>
+    <tr><td>Análisis semántico</td><td>¿Tiene sentido?</td><td><code>checker.rs</code>: ámbitos y tipos</td><td><a href="@ch:semantics">03</a></td></tr>
+    <tr><td>Generación de código</td><td>¿Qué debe hacer la máquina?</td><td><code>codegen.rs</code>, <code>wasm.rs</code>: WebAssembly</td><td><a href="@ch:codegen">04</a></td></tr>
+    <tr><td>Optimización</td><td>¿Puede hacer menos?</td><td><code>optimizer.rs</code>: plegado, código muerto</td><td><a href="@ch:optimization">05</a></td></tr>
+    <tr><td>Ejecución</td><td>¿Quién lo ejecuta, y cómo?</td><td>el motor Wasm de tu navegador</td><td><a href="@ch:runtime">06</a></td></tr>
+  </tbody>
+</table></div>
+
+<h2>¿Por qué Mario?</h2>
+
+<p>Porque un lenguaje que nunca has visto te obliga a mirarlo como lo mira un compilador: como texto con reglas. En Wahoo los programas se juegan como <strong>mundos</strong> (1-1, luego 1-2…), las funciones son <strong>tuberías</strong> (<em>pipes</em>) por las que bajas y de las que vuelves con un valor al llegar a la <strong>bandera</strong> (<em>flag</em>), los números enteros son <strong>monedas</strong> (<em>coins</em>), los booleanos son <strong>star</strong> y <strong>goomba</strong>, y una división entre cero te hace caer a un foso. Bajo el disfraz hay un lenguaje de verdad, con tipos estáticos, recursión, bucles, ámbitos y un compilador con buenos mensajes de error. La <a href="@reference">página del lenguaje</a> lo cuenta entero en una pantalla.</p>
+
+<h2>Cómo leer esta web</h2>
+
+<p>En orden, como un libro corto, o saltando directamente a la fase que te despierte curiosidad: cada capítulo se sostiene solo. Todas las figuras interactivas usan el mismo compilador que el <a href="@playground">playground</a>, así que lo que escribas se procesa de verdad, no se simula. El código de todo (compilador, herramienta de línea de órdenes y esta web) está en GitHub, y es lo bastante pequeño para leerlo en una tarde.</p>
+
+<p class="cta-row"><a class="cta primary" href="@ch:execution">Capítulo 00: ¿Compilado, interpretado o las dos cosas? →</a></p>

@@ -1,0 +1,140 @@
+<!--meta
+{
+  "kicker": "The language",
+  "title": "Wahoo in five minutes",
+  "dek": "Everything there is to know about Wahoo, on one page: worlds, coins, questions, loops, pipes, and what each error means."
+}
+-->
+
+<p>Wahoo is a small, statically typed language with three types, recursion, loops and block scoping. Its keywords come from the Mushroom Kingdom, but underneath it is an ordinary imperative language. Every snippet on this page can be pasted into the <a href="@playground">playground</a>.</p>
+
+<h2>A first program</h2>
+
+<pre class="wahoo">// Comments run from // to the end of the line.
+world 1-1 {
+  coin lives = 3
+  wahoo("Mario has ", lives, " lives")
+}</pre>
+
+<p>A program is a list of <strong>worlds</strong> and <strong>pipes</strong>, in any order. Statements end at the end of the line; there are no semicolons.</p>
+
+<h2>Worlds</h2>
+
+<p><code>world 1-1 { … }</code> is where execution starts. A program may have several worlds, and they are played in order of their number: <code>1-1</code>, <code>1-2</code>, … <code>2-1</code>, whatever their order in the file. Each world is its own level: variables declared in one are not visible in another. A bare <code>flag</code> leaves the current world early.</p>
+
+<h2>Types and values</h2>
+
+<table class="compare">
+  <thead><tr><th>Type</th><th>Values</th><th>Like</th></tr></thead>
+  <tbody>
+    <tr><td><code>coins</code></td><td>whole numbers from −2147483648 to 2147483647; <code>1_000</code> is allowed</td><td><code>int</code> (32-bit, wrapping on overflow)</td></tr>
+    <tr><td><code>switch</code></td><td><code>star</code> (true) and <code>goomba</code> (false)</td><td><code>bool</code></td></tr>
+    <tr><td><code>text</code></td><td><code>"between double quotes"</code>, with <code>\n \t \" \\</code></td><td>an immutable string literal</td></tr>
+  </tbody>
+</table>
+
+<p>Texts can be stored, passed to pipes, compared with <code>==</code> and printed, but not joined: to print several things together, pass them all to <code>wahoo(…)</code>.</p>
+
+<h2>Coins: variables</h2>
+
+<pre class="wahoo">coin lives = 3                 // the type (coins) is inferred
+coin name: text = "Luigi"      // or written explicitly
+lives = lives + 1              // assignment: no `coin`
+power_up lives                 // lives = lives + 1
+power_up lives by 10           // lives = lives + 10
+damage lives                   // lives = lives - 1
+damage lives by 2              // lives = lives - 2</pre>
+
+<p>A <code>coin</code> lives until the end of the block (<code>{ … }</code>) where it is declared. An inner block may declare a coin with the same name, which hides the outer one until the block ends. Declaring the same name twice in one block is an error. Names start with a letter or <code>_</code>; a coin whose name starts with <code>_</code> is never reported as unused.</p>
+
+<h2>Operators</h2>
+
+<p>From tightest to loosest binding:</p>
+
+<table class="compare">
+  <thead><tr><th>Operators</th><th>Operand types</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td><code>-x</code></td><td>coins</td><td>coins</td></tr>
+    <tr><td><code>*  /  %</code></td><td>coins</td><td>coins (division truncates toward zero)</td></tr>
+    <tr><td><code>+  -</code></td><td>coins</td><td>coins</td></tr>
+    <tr><td><code>&lt;  &lt;=  &gt;  &gt;=</code></td><td>coins</td><td>switch</td></tr>
+    <tr><td><code>==  !=</code></td><td>two values of the same type</td><td>switch</td></tr>
+    <tr><td><code>not</code></td><td>switch</td><td>switch</td></tr>
+    <tr><td><code>and</code></td><td>switch</td><td>switch (the right side only runs if needed)</td></tr>
+    <tr><td><code>or</code></td><td>switch</td><td>switch (the right side only runs if needed)</td></tr>
+  </tbody>
+</table>
+
+<p>Operators of the same level group to the left (<code>10 - 4 - 3</code> is <code>3</code>). Comparisons cannot be chained: write <code>a &lt; b and b &lt; c</code>.</p>
+
+<h2>Questions</h2>
+
+<pre class="wahoo">question lives &gt; 3 {
+  wahoo("plenty")
+} else question lives &gt; 0 {
+  wahoo("careful")
+} else {
+  wahoo("game over")
+}</pre>
+
+<p>The condition must be a <code>switch</code>; braces are always required.</p>
+
+<h2>Loops</h2>
+
+<pre class="wahoo">bounce lives &gt; 0 {        // while the condition holds
+  damage lives
+}
+
+run i from 1 to 5 {       // i = 1, 2, 3, 4, 5 (both ends included)
+  wahoo(i)
+}</pre>
+
+<p>In a <code>run</code> loop both bounds are computed once, before the first lap, and the counter is a new coin that exists only inside the loop. If the start is greater than the end, the body never runs.</p>
+
+<h2>Pipes</h2>
+
+<pre class="wahoo">pipe fib(n: coins) -&gt; coins {
+  question n &lt; 2 {
+    flag n
+  }
+  flag fib(n - 1) + fib(n - 2)
+}
+
+pipe greet(name: text) {      // no `-&gt;`: gives nothing back
+  wahoo("Hello, ", name)
+}</pre>
+
+<p>A <strong>pipe</strong> is a function. Parameters and the return type must be written; <code>flag value</code> returns, and a pipe with a return type must reach a <code>flag</code> on every path. Pipes can be called before their definition and can call themselves. A pipe without a return type is called as a statement on its own line, <code>greet("Peach")</code>; one with a return type can also be called that way, and its value is discarded.</p>
+
+<h2>Printing</h2>
+
+<p><code>wahoo(a, b, …)</code> prints its arguments one after another, with no separators, then a line break. Switches print as <code>star</code> and <code>goomba</code>. <code>wahoo</code> is a statement: it has no value, and no pipe may be called <code>wahoo</code>.</p>
+
+<h2>Errors and warnings</h2>
+
+<p>The compiler reports every problem it can find, with the line, the column, and often a hint. The code tells you which phase found it.</p>
+
+<table class="compare">
+  <thead><tr><th>Code</th><th>Phase</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>E001–E005</td><td><a href="@ch:lexing">lexer</a></td><td>unexpected character, unclosed text, unknown escape, number too big, malformed number</td></tr>
+    <tr><td>E101–E105</td><td><a href="@ch:parsing">parser</a></td><td>something expected but not found, chained comparison, a lonely expression, <code>else</code> without <code>question</code>, too many errors</td></tr>
+    <tr><td>E201–E218</td><td><a href="@ch:semantics">checker</a></td><td>no world, duplicates, unknown names, pipes or types, type mismatches, wrong number of arguments, missing <code>flag</code>, misplaced <code>flag</code> values</td></tr>
+    <tr><td>W301–W303</td><td>checker</td><td>warnings: unused coin, unreachable code, division by zero</td></tr>
+  </tbody>
+</table>
+
+<p>A program with warnings but no errors compiles and runs. At run time, three things stop a level early: division by zero, a division that overflows (<code>-2147483648 / -1</code>) and too deep a recursion. A program that loops forever is stopped after three seconds in the browser.</p>
+
+<h2>On the command line</h2>
+
+<p>The compiler is also a command-line tool, built from the same Rust code:</p>
+
+<pre class="code-block"><code>cargo install --path crates/wahoo-cli
+
+wahoo run examples/fib.wahoo          # compile and run (with the wasmi interpreter)
+wahoo build examples/fib.wahoo        # write examples/fib.wasm
+wahoo wat examples/fib.wahoo          # print the WebAssembly text
+wahoo tokens examples/fib.wahoo       # what the lexer sees
+wahoo ast examples/fib.wahoo          # what the parser builds
+wahoo check examples/errors.wahoo --lang es</code></pre>

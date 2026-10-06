@@ -1,0 +1,92 @@
+<!--meta
+{
+  "slug": "optimization",
+  "title": "Optimisation",
+  "chain": "Optimise",
+  "headline": "Doing less, faster",
+  "dek": "An optimiser rewrites a program into a cheaper one that behaves exactly the same. Some rewrites are obvious, like computing 2 × 60 at compile time; others need a careful analysis of how values flow through the program. All of them live under one rule: nobody must be able to tell the difference.",
+  "era": "1957 – today",
+  "people": ["Frances Allen", "John Cocke", "Gary Kildall", "Mark Wegman"],
+  "concepts": ["The as-if rule", "Constant folding", "Dead code elimination", "Data-flow analysis", "Undefined behaviour"]
+}
+-->
+
+<p>When FORTRAN appeared in 1957, programmers were sure that a machine could never write code as good as theirs. John Backus knew that if the first compiler produced slow programs, the whole idea would be dismissed, so his team spent much of its effort on <strong>optimisation</strong>, and the FORTRAN I compiler surprised its users with code close to what an expert would write. Optimisation has been the reason compilers are trusted ever since.</p>
+
+<p>The word is a little misleading. No compiler finds the <em>optimal</em> program; it applies a catalogue of safe <strong>transformations</strong> that usually make the program smaller or faster. Wahoo's optimizer (<code>optimizer.rs</code>) works on the checked HIR, before code generation, and you can switch it on and off in the <a href="@playground">playground</a>.</p>
+
+<h2>The as-if rule</h2>
+
+<div class="idea">
+  <span class="th-title">Key idea</span>
+  <p>An optimiser may change anything about a program except its <strong>observable behaviour</strong>: what it prints, what it returns, and whether and how it fails. The C standard calls this the <em>as-if rule</em>: the program must behave <em>as if</em> it had been executed exactly as written.</p>
+</div>
+
+<p>What counts as observable is a decision of the language. In Wahoo, output and run-time failures do. So <code>10 / 0</code> is <em>not</em> folded at compile time, even though the compiler can see both numbers: the program must still fall into the pit when, and only when, it reaches that line. And <code>loud() * 0</code> is not simplified to <code>0</code>, because <code>loud()</code> might print something. Only <em>pure</em> expressions, with no calls and no possible traps, can be thrown away.</p>
+
+<h2>What Wahoo's optimizer does</h2>
+
+<p><strong>Constant folding.</strong> Any operation whose operands are known at compile time is computed then: <code>2 * 60 + 30</code> becomes <code>150</code>, <code>3 &lt; 5</code> becomes <code>star</code>. The folding must use exactly the arithmetic of the target machine: Wahoo's <code>coins</code> are 32-bit integers that wrap around, so <code>2147483647 + 1</code> folds to <code>-2147483648</code>, the same value the program would compute at run time.</p>
+
+<p><strong>Algebraic simplification.</strong> Identities that hold for every value: <code>x + 0</code>, <code>x - 0</code>, <code>x * 1</code> and <code>x / 1</code> are <code>x</code>; <code>not not s</code> is <code>s</code>; <code>star and s</code> is <code>s</code>; <code>goomba and s</code> is <code>goomba</code> (and <code>s</code> would not have run anyway, because <code>and</code> short-circuits).</p>
+
+<p><strong>Branch elimination.</strong> A <code>question</code> whose condition folded to a constant is replaced by the branch that will run; a <code>bounce goomba</code> loop disappears; a <code>run</code> loop whose bounds are constants and empty (<code>from 5 to 1</code>) disappears too.</p>
+
+<p><strong>Dead code elimination.</strong> Statements after a <code>flag</code> can never run and are dropped (the checker has already warned about them).</p>
+
+<figure class="demo" data-demo="optimization/diff">
+  <figcaption>The same program compiled twice by the real compiler, without and with the optimizer. Count the instructions and bytes above each listing, and read the line saying what the optimizer did. Edit the program: add constant arithmetic, a <code>question</code> with a constant condition, or code after a <code>flag</code>, and watch it vanish from the right-hand side.</figcaption>
+</figure>
+
+<h2>What it doesn't do (yet)</h2>
+
+<p>Wahoo's optimizer is deliberately small. Production compilers apply dozens of passes, many of them over and over. A few of the classics, each with the opportunity it exploits:</p>
+
+<div class="compare-wrap">
+<table class="compare">
+  <thead><tr><th>Transformation</th><th>Before</th><th>After</th></tr></thead>
+  <tbody>
+    <tr><td>Constant propagation</td><td><code>coin t = 150</code> … <code>wahoo(t * 2)</code></td><td><code>wahoo(300)</code> if <code>t</code> never changes</td></tr>
+    <tr><td>Common subexpressions</td><td><code>(a + b) * (a + b)</code></td><td>compute <code>a + b</code> once</td></tr>
+    <tr><td>Loop-invariant code motion</td><td><code>bounce i &lt; n { wahoo(i * (w * h)) … }</code></td><td>compute <code>w * h</code> once, before the loop</td></tr>
+    <tr><td>Strength reduction</td><td><code>i * 8</code> in a loop</td><td>a shift, or adding 8 each iteration</td></tr>
+    <tr><td>Inlining</td><td>a call to a short pipe</td><td>the pipe's body, in place, opening the door to every other optimisation</td></tr>
+    <tr><td>Peephole</td><td><code>i32.gt_s</code> followed by <code>i32.eqz</code></td><td><code>i32.le_s</code> (Wahoo emits that pair in every <code>bounce</code>!)</td></tr>
+    <tr><td>Tail-call elimination</td><td>a pipe whose last act is to call itself</td><td>a jump back to the start: recursion without a growing stack</td></tr>
+    <tr><td>Vectorisation</td><td>a loop adding two arrays element by element</td><td>one instruction adding four or eight elements at a time</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Each of these is a nice exercise: the <a href="@ch:codegen">code generator's</a> loop pattern, for instance, is crying out for the peephole rule in the table.</p>
+
+<h2>Data-flow analysis</h2>
+
+<p>Folding <code>2 * 60</code> only needs to look at one node of the tree. Propagating constants through variables, finding expressions computed twice or variables that are dead needs to know how values <em>flow</em> through the whole function, across branches and loops. The foundations were laid at IBM by <strong>Frances Allen</strong> and John Cocke. Allen's 1970 paper <em>Control Flow Analysis</em> cut functions into <em>basic blocks</em> (straight-line runs of code with one way in and one way out) joined by edges into a <em>control-flow graph</em>, and in 1971 Allen and Cocke published <em>A Catalogue of Optimizing Transformations</em>, the list most compilers still follow. In 2006 Allen became the first woman to receive the Turing Award, for this work.</p>
+
+<p>In 1973 Gary Kildall (later the author of the CP/M operating system) unified the analyses into one framework: each one is a set of facts that propagates along the graph, combined where paths meet, and iterated until nothing changes. The lattice theory behind it guarantees that the iteration stops. In the late 1980s Mark Wegman, Kenneth Zadeck and their colleagues at IBM introduced SSA form (<a href="@ch:codegen">chapter 04</a>), which makes many of these analyses faster and simpler, and which nearly every optimising compiler now uses.</p>
+
+<h2>The dark side: undefined behaviour</h2>
+
+<p>The as-if rule only protects programs whose behaviour is defined. C and C++ leave many things <em>undefined</em>: signed integer overflow, reading outside an array, dereferencing a null pointer. The compiler may assume they never happen, and optimise accordingly. A programmer who writes an overflow check like</p>
+
+<pre class="code-block"><code>if (x + 1 &lt; x) { /* overflow! */ }</code></pre>
+
+<p>may find it deleted, because for a signed <code>int</code> the condition can only be true after an overflow, which “cannot happen”. Such surprises have caused real security holes. Wahoo, like Rust in release mode, Java and WebAssembly itself, <em>defines</em> overflow as wrap-around, so there is nothing for the optimiser to exploit and nothing to surprise anyone.</p>
+
+<h2>No perfect optimiser</h2>
+
+<p>Could a sufficiently clever compiler always find the smallest equivalent program? No. If it could, then given any program that never prints and never stops, it would turn it into the smallest program that never prints and never stops, an empty infinite loop, and comparing outputs would decide the halting problem. Andrew Appel calls this the <em>full employment theorem for compiler writers</em>: there is always a better optimiser to write. In practice the limits are economic rather than mathematical: every pass costs compilation time, which is why compilers offer levels (<code>-O0</code> to <code>-O3</code>), why JITs only optimise hot code (<a href="@ch:execution">chapter 00</a>), and why Wahoo lets you turn it off and compare.</p>
+
+<section class="references">
+  <h2>References</h2>
+  <ol>
+    <li>J. W. Backus (1978). “The History of FORTRAN I, II, and III”. <em>ACM SIGPLAN Notices</em>, 13(8).</li>
+    <li>F. E. Allen (1970). “Control Flow Analysis”. <em>ACM SIGPLAN Notices</em>, 5(7).</li>
+    <li>F. E. Allen and J. Cocke (1971). “A Catalogue of Optimizing Transformations”. In <em>Design and Optimization of Compilers</em>, Prentice-Hall.</li>
+    <li>G. A. Kildall (1973). “A Unified Approach to Global Program Optimization”. <em>Proceedings of the 1st ACM Symposium on Principles of Programming Languages</em>.</li>
+    <li>B. K. Rosen, M. N. Wegman and F. K. Zadeck (1988). “Global Value Numbers and Redundant Computations”. <em>Proceedings of POPL</em>.</li>
+    <li>A. W. Appel (1998). <em>Modern Compiler Implementation in ML</em>. Cambridge University Press.</li>
+    <li>C. Lattner (2011). “What Every C Programmer Should Know About Undefined Behavior”. <em>LLVM Project Blog</em>.</li>
+  </ol>
+</section>

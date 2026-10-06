@@ -1,0 +1,10 @@
+{
+  "base_url": "https://toniferr.github.io/wahoo/",
+  "repo": "https://github.com/toniferr/wahoo",
+  "author": "Antonio Ferreiro",
+  "author_url": "https://toniferr.github.io/",
+  "langs": ["en", "es"],
+  "default_lang": "en",
+  "chapters": ["execution", "lexing", "parsing", "semantics", "codegen", "optimization", "runtime"],
+  "examples": ["hello", "lives", "mario-luigi", "fib", "primes", "collatz", "errors"]
+}

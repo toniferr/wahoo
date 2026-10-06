@@ -1,0 +1,154 @@
+{
+  "site_title": "¡Wahoo! Cómo funciona un compilador",
+  "site_short": "Wahoo",
+  "site_description": "Una guía interactiva de compiladores e intérpretes, con Wahoo, un pequeño lenguaje del Reino Champiñón cuyo compilador real (escrito en Rust, con WebAssembly como destino) se ejecuta en tu navegador.",
+  "nav": {
+    "skip": "Saltar al contenido",
+    "main": "Principal",
+    "chapters": "Capítulos",
+    "playground": "Playground",
+    "reference": "El lenguaje",
+    "timeline": "Historia",
+    "lang": "Idioma",
+    "theme": "Cambiar entre tema claro y oscuro"
+  },
+  "chapter": {
+    "label": "Capítulo",
+    "era": "Época",
+    "people": "Protagonistas",
+    "concepts": "Ideas clave",
+    "toc": "En este capítulo",
+    "prevnext": "Capítulo anterior y siguiente",
+    "prev": "Anterior",
+    "next": "Siguiente"
+  },
+  "playground": {
+    "slug": "playground",
+    "dek_short": "Escribe Wahoo, mira cada fase y ejecútalo."
+  },
+  "reference": {
+    "slug": "lenguaje"
+  },
+  "timeline": {
+    "slug": "historia",
+    "kicker": "Historia",
+    "all": "Todo",
+    "filter": "Filtrar por capítulo",
+    "read": "Leer el capítulo"
+  },
+  "footer": {
+    "text": "Texto, figuras y compilador hechos a mano (con ayuda de Claude Code), sin frameworks ni rastreadores. Wahoo es un lenguaje didáctico hecho por un fan; Mario y el Reino Champiñón son de Nintendo, y aquí no se usa ningún recurso de los juegos.",
+    "source": "Código fuente en GitHub",
+    "siblings": "Webs hermanas: <a href=\"https://toniferr.github.io/math-of-ai/es/\">Math of AI</a> · <a href=\"https://toniferr.github.io/math-of-quantum/es/\">Math of Quantum</a> · <a href=\"https://toniferr.github.io/calculus-computing/es/\">Calculus × Computing</a>"
+  },
+  "examples": {
+    "hello": "Hola, mundo 1-1",
+    "lives": "Vidas y monedas (bucles)",
+    "mario-luigi": "Mario y Luigi (FizzBuzz)",
+    "fib": "Fibonacci (recursión)",
+    "primes": "Estrellas (primos)",
+    "collatz": "Los saltos de Collatz",
+    "errors": "Un nivel lleno de errores"
+  },
+  "demos": {
+    "core": { "error": "Esta figura no ha podido arrancar. Recarga la página para intentarlo de nuevo." },
+    "run": {
+      "pit": "Has caído a un foso: división entre cero.",
+      "overflow": "Demasiadas monedas: -2147483648 / -1 no cabe en 32 bits.",
+      "stack": "Demasiadas tuberías anidadas: desbordamiento de pila (¿recursión infinita?).",
+      "time": "¡Se acabó el tiempo! El nivel ha durado más de 3 segundos (¿bucle infinito?).",
+      "output": "Detenido tras 5000 líneas de salida.",
+      "other": "El programa se ha detenido: {msg}",
+      "done": "¡Nivel superado!",
+      "running": "Ejecutando…"
+    },
+    "tokens": { "keyword": "palabra clave", "name": "nombre", "number": "número", "text": "texto", "symbol": "símbolo", "eof": "fin" },
+    "ast": { "label": "Árbol sintáctico" },
+    "bytes": {
+      "section": "Sección",
+      "offset": "Posición",
+      "size": "Bytes",
+      "what": "Qué contiene",
+      "header": "cabecera",
+      "total": "{n} bytes en total. Cada color es una sección; un borde izquierdo marcado indica dónde empieza.",
+      "sec": {
+        "header": "el número mágico \\0asm y la versión del formato (1)",
+        "type": "las firmas de las funciones, cada una una sola vez",
+        "import": "lo que debe aportar el anfitrión: las cuatro funciones de imprimir",
+        "function": "la firma de cada función definida aquí",
+        "memory": "una memoria lineal, en páginas de 64 KiB",
+        "export": "lo que el anfitrión puede usar: memory y main",
+        "code": "los cuerpos: variables locales e instrucciones",
+        "data": "los bytes de cada texto literal",
+        "custom": "la sección \"name\": nombres de funciones y variables para las herramientas"
+      }
+    },
+    "pg": {
+      "example": "Ejemplo",
+      "shared": "Enlace compartido",
+      "optimize": "Optimizador",
+      "share": "Compartir",
+      "run": "▶ Ejecutar",
+      "editor": "Código fuente en Wahoo",
+      "loading": "Cargando el compilador…",
+      "keys": "Ctrl+Intro ejecuta. Pulsa un error para ir a él.",
+      "tab": { "output": "Salida", "tokens": "Tokens", "ast": "Árbol sintáctico", "wat": "WebAssembly", "bytes": "Bytes" },
+      "size": "{n} bytes de Wasm",
+      "stats": "plegadas {folded}, ramas eliminadas {branches}, sentencias muertas {dead}",
+      "fixFirst": "Arregla antes los errores: el compilador solo genera código para un programa correcto.",
+      "pressRun": "Pulsa Ejecutar (o Ctrl+Intro) para jugar el nivel.",
+      "cantRun": "El programa tiene errores, así que todavía no hay nada que ejecutar.",
+      "copied": "Enlace copiado.",
+      "inAddressBar": "El enlace está en la barra de direcciones.",
+      "loadError": "No se ha podido cargar el compilador (hace falta un navegador con WebAssembly)."
+    },
+    "home": {
+      "code": "// Edítame y pulsa Ejecutar.\nworld 1-1 {\n  coin monedas = 0\n  run i from 1 to 5 {\n    power_up monedas by 10\n    wahoo(\"Bloque \", i, \": \", monedas, \" monedas\")\n  }\n  question monedas >= 50 {\n    wahoo(\"¡1-UP!\")\n  }\n}\n",
+      "hint": "Es el compilador de verdad, ejecutándose en tu navegador."
+    },
+    "exec": {
+      "pick": "Elige un lenguaje",
+      "when": { "build": "antes de ejecutar", "run": "al ejecutar", "hw": "hardware" },
+      "kind": {
+        "aot": "Compilado de antemano.",
+        "jit": "Bytecode más un compilador «justo a tiempo».",
+        "vm": "Compilado a bytecode y ejecutado por una máquina virtual.",
+        "interp": "Interpretado.",
+        "trans": "Traducido a otro lenguaje."
+      }
+    },
+    "lex": {
+      "code": "// Los comentarios y los espacios desaparecen.\ncoin vidas = 3\nquestion vidas <= 0 {\n  wahoo(\"Game over\")\n}\n",
+      "stats": "{chars} caracteres → {tokens} tokens"
+    },
+    "parse": {
+      "input": "Expresión",
+      "reads": "El parser la lee como {expr}"
+    },
+    "sem": { "pick": "Elige un error" },
+    "cg": {
+      "input": "Expresión con a, b y c",
+      "code": "WebAssembly",
+      "stack": "Pila de operandos",
+      "step": "Paso",
+      "run": "Hasta el final",
+      "reset": "Reiniciar",
+      "noCalls": "Esta figura no puede entrar en llamadas.",
+      "empty": "vacía",
+      "result": "Resultado: {v}, tras {n} instrucciones.",
+      "progress": "Instrucción {i} de {n}."
+    },
+    "opt": {
+      "code": "pipe segundos(minutos: coins) -> coins {\n  flag minutos * 60\n}\n\nworld 1-1 {\n  coin tiempo = 2 * 60 + 30\n  question 1 < 2 {\n    wahoo(\"Tiempo: \", tiempo + 0)\n  } else {\n    wahoo(\"nunca se ve\")\n  }\n  bounce goomba {\n    wahoo(\"nunca se ejecuta\")\n  }\n  wahoo(segundos(3) * 1)\n}\n",
+      "before": "Sin optimizador",
+      "after": "Con optimizador",
+      "work": "Qué ha hecho",
+      "off": "Optimizador apagado",
+      "on": "Optimizador encendido",
+      "size": "{n} instr. · {b} bytes"
+    },
+    "rt": {
+      "code": "world 1-1 {\n  wahoo(\"¡Wahoo!\", 1 + 2)\n}\n"
+    }
+  }
+}

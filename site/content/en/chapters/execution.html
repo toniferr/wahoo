@@ -1,0 +1,130 @@
+<!--meta
+{
+  "slug": "execution",
+  "title": "Execution models",
+  "chain": "Models",
+  "headline": "Compiled, interpreted, or both?",
+  "dek": "A processor only understands machine code. There are two ways to get a program written in text to it: translate the whole thing beforehand, or read it and act it out as you go. Almost every real language uses a mixture of both.",
+  "era": "1949 – today",
+  "people": ["Grace Hopper", "John Backus", "John McCarthy", "Lars Bak"],
+  "concepts": ["Compiler vs. interpreter", "Bytecode and virtual machines", "Just-in-time compilation", "Transpilers", "Bootstrapping"]
+}
+-->
+
+<p>A processor is astonishingly literal. It fetches a few bytes from memory, decodes them as one instruction (“add these two registers”, “jump if zero”), executes it and fetches the next. That is all it will ever do. A line such as <code>coin lives = 3</code> means nothing to it: somebody has to turn the text into those bytes, or into actions equivalent to them.</p>
+
+<p>There are two classic ways to do it, and a conference gives a good picture of both. A <em>translator</em> takes the speaker's written text the night before and hands the audience a printed copy in their own language: slow to prepare, but then anyone can read it at full speed, as many times as they like. An <em>interpreter</em> sits next to the speaker and renders each sentence as it is spoken: nothing to prepare, but every sentence costs effort every time, and if the speaker contradicts themselves the interpreter only notices when they get there.</p>
+
+<h2>Two ways to run a program</h2>
+
+<div class="definition">
+  <span class="th-title">Definition <span class="th-name">(compiler and interpreter)</span></span>
+  <p>A <strong>compiler</strong> is a program that takes a program in a <em>source language</em> and produces an equivalent program in a <em>target language</em>, without running it. An <strong>interpreter</strong> is a program that takes a program <em>and its input</em> and produces the program's output directly, by carrying out what the program says.</p>
+</div>
+
+<p>The difference is <em>when</em> the work happens. The compiler does its analysis once, before the program runs, and the result can be run many times; the interpreter does a little analysis every time a piece of the program is executed. Compilers can afford to think hard (to check types, to optimise) because their cost is paid only once. Interpreters start immediately, can run code typed a second ago, and see the actual values the program is working with.</p>
+
+<aside class="note">In 1971 Yoshihiko Futamura noticed that an interpreter <em>specialised</em> to one fixed program is a compiled version of that program, and that specialising the specialiser to the interpreter yields a compiler. These <strong>Futamura projections</strong> are the theory behind tools like GraalVM's Truffle, which turn interpreters into JIT compilers.</aside>
+
+<p>The first high-level language implementations were interpreters. John Mauchly's <em>Short Code</em> (1949) let UNIVAC programmers write formulas instead of machine instructions, and was interpreted at roughly fifty times the cost of hand-written code. Programmers were not willing to pay that price, and for a decade the received wisdom was that automatic programming would always be slow. Grace Hopper's A-0 system (1952) started calling the translating approach a “compiler”, and in 1957 John Backus's team at IBM delivered FORTRAN, whose compiler produced code nearly as good as an expert's. That result, more than any argument, is what made high-level languages acceptable.</p>
+
+<h2>It's the implementation, not the language</h2>
+
+<div class="idea">
+  <span class="th-title">Key idea</span>
+  <p>“Compiled” and “interpreted” describe <strong>implementations</strong>, not languages. There are interpreters for C (Cling, from CERN, runs C++ interactively) and compilers for Python (Cython, Nuitka, and PyPy's just-in-time compiler). What people usually mean is how the <em>most common</em> implementation works.</p>
+</div>
+
+<p>Even the most common implementations are rarely pure. CPython, the standard Python, compiles your file to <em>bytecode</em> before running a single line of it, and then interprets the bytecode. Java is compiled twice: once to bytecode on the programmer's machine, and again, to machine code, inside the virtual machine while the program runs. Real systems sit somewhere on a spectrum.</p>
+
+<h2>The spectrum</h2>
+
+<h3>Tree-walking interpreters</h3>
+
+<p>The most direct design: parse the program into a syntax tree (chapters <a href="@ch:lexing">01</a> and <a href="@ch:parsing">02</a>) and evaluate it by walking the tree. To compute <code>a + b * 2</code>, visit the <code>+</code> node, which asks its children for their values, and so on down. John McCarthy described Lisp in 1960 through a function <code>eval</code> that does exactly this, and Steve Russell surprised him by implementing it, giving the world its first Lisp interpreter. Shells such as Bash still work this way, and so did Ruby until version 1.8. It is simple and flexible, but slow: every node visited costs pointer chasing and a decision about what kind of node it is.</p>
+
+<h3>Bytecode and virtual machines</h3>
+
+<p>The next step is to compile the tree into a flat list of simple instructions for an imaginary machine, the <strong>bytecode</strong>, and interpret that instead. A loop reads one instruction, jumps to the code that handles it, and repeats. Bytecode is compact, cache-friendly and easy to dispatch, which makes this design several times faster than walking a tree. Pascal's <em>p-code</em> (1970s) made the idea famous; today it powers CPython, Ruby, Lua, PHP, the JVM, .NET and Erlang's BEAM. Some virtual machines are <em>stack machines</em> (operands live on a stack, as in the JVM, CPython and WebAssembly) and others are <em>register machines</em> (instructions name their operands, as in Lua 5 and Android's Dalvik).</p>
+
+<h3>Just-in-time compilers</h3>
+
+<p>A <strong>JIT</strong> compiles to machine code <em>while the program runs</em>. It starts by interpreting, counts which functions are hot, and compiles those, using information no ahead-of-time compiler can have: the types that actually showed up, which branches are taken, which objects have which shape. If a guess turns out wrong (a function that always received integers suddenly gets a string), the JIT throws the compiled code away and falls back to the interpreter: <em>deoptimisation</em>. The techniques come from Smalltalk and, above all, from the Self project of the late 1980s and early 1990s; the same people went on to build Java's HotSpot (1999) and, with Lars Bak, Google's V8 (2008), which made JavaScript fast enough to run whole applications.</p>
+
+<h3>Ahead-of-time compilers</h3>
+
+<p>Translate everything before running: C, C++, Rust, Go, Swift, Haskell, Fortran. Start-up is instant and performance predictable, no compiler sits in memory while the program runs, and many mistakes are caught before anyone runs anything. The price is that the compiler must guess what the program will do, and the executable runs only on the processor and operating system it was built for.</p>
+
+<h3>Transpilers</h3>
+
+<p>A <strong>transpiler</strong> (source-to-source compiler) translates into another high-level language rather than into machine code: TypeScript and Elm to JavaScript, early C++ (Cfront) to C, Nim to C. It reuses everything the target language already has, from its optimisers to its debuggers.</p>
+
+<figure class="demo" data-demo="execution/pipeline">
+  <figcaption>From text to processor in twelve languages. Solid boxes happen <strong>before the program runs</strong> (on the programmer's machine or a build server), dashed boxes <strong>while it runs</strong> (on the user's machine, every time) and the dark box is the hardware. Notice how many languages compile something even when they are called interpreted, and how many JIT-compiled languages also have a compiler before that.</figcaption>
+</figure>
+
+<h2>A dozen languages side by side</h2>
+
+<p>The same story as a table. “Becomes machine code” says when the processor-specific code appears for the most common implementation; there are alternatives for nearly every row.</p>
+
+<div class="compare-wrap wide">
+<table class="compare">
+  <thead><tr><th>Language</th><th>Model</th><th>Usual implementation</th><th>What you ship</th><th>Becomes machine code</th><th>Types</th></tr></thead>
+  <tbody>
+    <tr><td>C</td><td><span class="pill pill-aot">AOT</span></td><td>GCC, Clang</td><td>executable</td><td>before running</td><td>static</td></tr>
+    <tr><td>Rust</td><td><span class="pill pill-aot">AOT</span></td><td>rustc + LLVM</td><td>executable</td><td>before running</td><td>static</td></tr>
+    <tr><td>Go</td><td><span class="pill pill-aot">AOT</span></td><td>gc</td><td>executable with its runtime</td><td>before running</td><td>static</td></tr>
+    <tr><td>Haskell</td><td><span class="pill pill-aot">AOT</span></td><td>GHC</td><td>executable</td><td>before running</td><td>static, inferred</td></tr>
+    <tr><td>Java</td><td><span class="pill pill-jit">bytecode + JIT</span></td><td>javac + HotSpot</td><td>bytecode (.jar)</td><td>while running</td><td>static</td></tr>
+    <tr><td>C#</td><td><span class="pill pill-jit">bytecode + JIT</span></td><td>Roslyn + .NET</td><td>bytecode (.dll)</td><td>while running (or before, with Native AOT)</td><td>static</td></tr>
+    <tr><td>JavaScript</td><td><span class="pill pill-jit">JIT</span></td><td>V8, SpiderMonkey, JavaScriptCore</td><td>source</td><td>while running</td><td>dynamic</td></tr>
+    <tr><td>Python</td><td><span class="pill pill-vm">bytecode VM</span></td><td>CPython</td><td>source</td><td>never, usually (the interpreter runs; 3.13 has an experimental JIT)</td><td>dynamic</td></tr>
+    <tr><td>Ruby</td><td><span class="pill pill-vm">bytecode VM</span></td><td>CRuby (YARV)</td><td>source</td><td>with YJIT, while running</td><td>dynamic</td></tr>
+    <tr><td>PHP</td><td><span class="pill pill-vm">bytecode VM</span></td><td>Zend Engine</td><td>source</td><td>with the PHP 8 JIT, while running</td><td>dynamic</td></tr>
+    <tr><td>Lua</td><td><span class="pill pill-vm">bytecode VM</span></td><td>PUC-Rio Lua, LuaJIT</td><td>source or bytecode</td><td>with LuaJIT, while running</td><td>dynamic</td></tr>
+    <tr><td>TypeScript</td><td><span class="pill pill-trans">transpiled</span></td><td>tsc</td><td>JavaScript</td><td>as JavaScript does</td><td>static, then erased</td></tr>
+    <tr><td>Bash</td><td><span class="pill pill-interp">interpreted</span></td><td>bash</td><td>source</td><td>never</td><td>everything is a string</td></tr>
+    <tr><td>Wahoo</td><td><span class="pill pill-aot">AOT to Wasm</span></td><td>wahoo (Rust)</td><td>WebAssembly (.wasm)</td><td>when the Wasm engine loads it</td><td>static</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Why not always compile?</h2>
+
+<p>Because every choice trades one thing for another:</p>
+
+<ul>
+  <li><strong>Start-up versus peak speed.</strong> An interpreter starts at once; a JIT needs a <em>warm-up</em> before it reaches full speed; an ahead-of-time binary is fast from the first instruction. For a command-line tool that runs for 20 milliseconds, start-up is everything. For a server that runs for months, peak speed is.</li>
+  <li><strong>What is known when.</strong> An AOT compiler must handle every input the program could receive. A JIT sees the inputs it actually receives and can specialise for them, which is why JavaScript, a language where <code>a + b</code> might be an addition, a string concatenation or a call to a user's method, can still run quickly.</li>
+  <li><strong>Portability.</strong> Bytecode runs wherever its virtual machine runs: “write once, run anywhere” was Java's slogan. A native executable must be rebuilt for each platform.</li>
+  <li><strong>When errors appear.</strong> A compiler with a type checker refuses a program with a type error before it runs. A dynamically typed interpreter discovers it on the line where it happens, maybe in production, maybe never.</li>
+  <li><strong>Interactivity.</strong> Interpreters make REPLs, notebooks and live coding natural, because there is no separate build step.</li>
+</ul>
+
+<h2>The JIT's bet</h2>
+
+<p>Consider a JavaScript function <code>function add(a, b) { return a + b; }</code>. Ahead of time, nothing can be assumed about <code>a</code> and <code>b</code>. V8's interpreter, Ignition, runs it a few hundred times and records that both arguments were always small integers. The optimising compiler then emits a few machine instructions: check that both are small integers, add them, check for overflow, return. If a check ever fails, execution jumps back to the interpreter and the optimised code is discarded. The bet usually pays off because real programs are far more regular than their languages allow them to be.</p>
+
+<aside class="note">This is why JavaScript benchmarks often show a “staircase”: interpreter speed, then a jump when baseline compilation kicks in, then another when the optimising compiler takes over.</aside>
+
+<h2>Compilers that compile themselves</h2>
+
+<p>A compiler is just a program, so it can be written in the language it compiles. The first time is a chicken-and-egg problem solved by <strong>bootstrapping</strong>: write a first, simple compiler in another language, use it to compile a better compiler written in the new language, and from then on the language compiles itself. The Lisp 1.5 compiler of 1962 was written in Lisp; Rust's first compiler was written in OCaml until it could compile itself in 2011; Go's compiler moved from C to Go in 2015. In his 1984 Turing Award lecture, <em>Reflections on Trusting Trust</em>, Ken Thompson showed the unsettling side of this: a compiler can be taught to insert a back door into every program it compiles, <em>including future versions of itself</em>, leaving no trace in any source code.</p>
+
+<h2>Where Wahoo sits</h2>
+
+<p>Wahoo is compiled ahead of time, but not to machine code: its target is <strong>WebAssembly</strong>, a portable bytecode designed to be compiled once more, quickly and safely, by the browser. So a Wahoo program goes through two compilers: <code>.wahoo</code> → <code>.wasm</code> by our compiler, then <code>.wasm</code> → machine code by your browser's engine (<a href="@ch:runtime">chapter 06</a>). And in the playground the first compiler is itself a WebAssembly module, Rust compiled to Wasm. The next chapters open it up, one phase at a time, starting with the humblest: reading the characters.</p>
+
+<section class="references">
+  <h2>References</h2>
+  <ol>
+    <li>G. M. Hopper (1952). “The Education of a Computer”. <em>Proceedings of the ACM National Meeting</em>.</li>
+    <li>J. W. Backus et al. (1957). “The FORTRAN Automatic Coding System”. <em>Proceedings of the Western Joint Computer Conference</em>.</li>
+    <li>J. McCarthy (1960). “Recursive Functions of Symbolic Expressions and Their Computation by Machine, Part I”. <em>Communications of the ACM</em>, 3(4).</li>
+    <li>Y. Futamura (1971). “Partial Evaluation of Computation Process — An Approach to a Compiler-Compiler”. <em>Systems, Computers, Controls</em>, 2(5).</li>
+    <li>K. Thompson (1984). “Reflections on Trusting Trust”. <em>Communications of the ACM</em>, 27(8).</li>
+    <li>U. Hölzle (1994). <em>Adaptive Optimization for Self: Reconciling High Performance with Exploratory Programming</em>. PhD thesis, Stanford University.</li>
+    <li>J. Aycock (2003). “A Brief History of Just-In-Time”. <em>ACM Computing Surveys</em>, 35(2).</li>
+    <li>R. Nystrom (2021). <em>Crafting Interpreters</em>. Genever Benning.</li>
+  </ol>
+</section>

@@ -1,0 +1,137 @@
+<!--meta
+{
+  "slug": "parsing",
+  "title": "Syntax analysis",
+  "chain": "Parse",
+  "headline": "From words to trees",
+  "dek": "Tokens come in a flat line, but programs are nested: expressions inside expressions, blocks inside loops inside functions. The parser recovers that structure as a tree, guided by a grammar, a notion borrowed from linguistics in the 1950s.",
+  "era": "1956 – 1975",
+  "people": ["Noam Chomsky", "John Backus", "Peter Naur", "Donald Knuth", "Vaughan Pratt"],
+  "concepts": ["Context-free grammars", "BNF", "Abstract syntax trees", "Recursive descent", "Pratt parsing", "LL and LR"]
+}
+-->
+
+<p>The lexer hands over a list: <code>1</code>, <code>+</code>, <code>2</code>, <code>*</code>, <code>3</code>. Every schoolchild knows the answer is 7, not 9, because multiplication “goes first”. The list does not say so. The rule lives in the language's <em>grammar</em>, and the <strong>parser</strong> applies it to build a tree in which <code>2 * 3</code> hangs below the <code>+</code>. From here on the compiler never looks at the text again: it works on trees.</p>
+
+<h2>Grammars</h2>
+
+<p>In 1956 the linguist Noam Chomsky classified the ways of describing languages by how much memory a machine needs to recognise them. Regular languages (the lexer's, <a href="@ch:lexing">chapter 01</a>) need a finite memory; one level up, <strong>context-free</strong> languages need a stack, and can express nesting to any depth. Almost every programming language's syntax is designed to be context-free.</p>
+
+<div class="definition">
+  <span class="th-title">Definition <span class="th-name">(context-free grammar)</span></span>
+  <p>A grammar is a set of <strong>rules</strong> of the form <code>A := α</code>, where <code>A</code> is a <em>nonterminal</em> (a syntactic category, such as “expression”) and <code>α</code> is a sequence of terminals (tokens) and nonterminals. A sentence belongs to the language if it can be <em>derived</em> from the start symbol by repeatedly replacing a nonterminal with the right-hand side of one of its rules.</p>
+</div>
+
+<p>Three years later John Backus, fresh from FORTRAN, needed a precise way to define the syntax of the new international language ALGOL. His notation, polished by Peter Naur as editor of the ALGOL 60 report, became <strong>BNF</strong> (Backus–Naur form), and every language definition since descends from it. Here is part of Wahoo's grammar in the extended form with <code>[ ]</code> for optional parts and <code>{ }</code> for repetition:</p>
+
+<pre class="code-block"><code>program  := item*
+item     := 'pipe' NAME '(' [param {',' param}] ')' ['-&gt;' NAME] block
+          | 'world' INT '-' INT block
+block    := '{' stmt* '}'
+stmt     := 'coin' NAME [':' NAME] '=' expr
+          | 'question' expr block ['else' (question | block)]
+          | 'bounce' expr block
+          | 'run' NAME 'from' expr 'to' expr block
+          | 'flag' [expr]
+          | NAME '=' expr
+          | call
+expr     := or
+or       := and {'or' and}
+and      := not {'and' not}
+not      := 'not' not | cmp
+cmp      := sum [('==' | '!=' | '&lt;' | '&lt;=' | '&gt;' | '&gt;=') sum]
+sum      := term {('+' | '-') term}
+term     := unary {('*' | '/' | '%') unary}
+unary    := '-' unary | primary
+primary  := INT | TEXT | 'star' | 'goomba' | call | NAME | '(' expr ')'</code></pre>
+
+<p>Read the expression rules from top to bottom: each level is built from the level below, so the lower a rule, the tighter its operators bind. That layering <em>is</em> the precedence table, written as grammar.</p>
+
+<h2>Parse trees and abstract syntax trees</h2>
+
+<p>A derivation can be drawn as a <strong>parse tree</strong>, with one node per rule applied. It records everything, including the parentheses and the chain <code>expr → or → and → not → cmp → sum</code> that a lone number goes through. Compilers keep a slimmer version, the <strong>abstract syntax tree</strong> (AST): one node per construct that means something, with punctuation and grouping dropped because the shape of the tree already encodes them. In the figure, <code>(1 + 2) * 3</code> has no parenthesis node; the <code>+</code> simply sits below the <code>*</code>.</p>
+
+<figure class="demo" data-demo="parsing/tree">
+  <figcaption>Type an expression and the real parser builds its tree. The line above the tree shows how it grouped the operators, with every implicit parenthesis made explicit. Compare <code>1 + 2 * 3</code> with <code>(1 + 2) * 3</code>, see that <code>10 - 4 - 3</code> groups to the left, that <code>not</code> binds more loosely than comparisons, and what happens with <code>1 &lt; 2 &lt; 3</code>.</figcaption>
+</figure>
+
+<h2>Ambiguity, precedence and associativity</h2>
+
+<p>The obvious grammar for arithmetic, <code>expr := expr op expr | INT</code>, is <strong>ambiguous</strong>: <code>10 - 4 - 3</code> has two trees, one meaning <code>(10 - 4) - 3 = 3</code> and the other <code>10 - (4 - 3) = 9</code>. A language must pick one, and two pieces of information settle every case:</p>
+
+<ul>
+  <li><strong>Precedence</strong> says which operators bind tighter: <code>*</code> before <code>+</code>, both before <code>&lt;</code>, that before <code>and</code>, that before <code>or</code>.</li>
+  <li><strong>Associativity</strong> says how to group a chain of operators of the same level: left for <code>-</code> and <code>/</code> (so <code>10 - 4 - 3 = 3</code>), right for exponentiation in languages that have it (<code>2 ** 3 ** 2 = 2 ** 9</code> in Python).</li>
+</ul>
+
+<p>The best-known ambiguity in language design is the <em>dangling else</em>: in <code>if a if b x else y</code>, which <code>if</code> owns the <code>else</code>? C and Java say “the nearest one”. Wahoo sidesteps the question by making braces mandatory: <code>question a { question b { x } else { y } }</code> can only be read one way.</p>
+
+<p>Comparisons deserve a special decision. In C, <code>1 &lt; 2 &lt; 3</code> is legal and means <code>(1 &lt; 2) &lt; 3</code>, that is <code>1 &lt; 3</code>, which is true by accident; <code>3 &gt; 2 &gt; 1</code> is false for the same reason. Python reads it as <code>1 &lt; 2 and 2 &lt; 3</code>. Wahoo refuses it (error E102) and asks you to write the <code>and</code>.</p>
+
+<h2>Recursive descent</h2>
+
+<p>The most natural way to write a parser by hand is to turn each grammar rule into a function. <code>block</code> expects a <code>{</code>, then calls <code>stmt</code> until it sees <code>}</code>; <code>stmt</code> looks at the next token and decides which rule applies; <code>question</code> calls <code>expr</code> and then <code>block</code>. The functions call each other recursively exactly as the rules refer to each other, and the call stack plays the role of the stack that context-free languages need. This is <strong>recursive descent</strong>, and it is how GCC, Clang, rustc, Go, V8 and Wahoo parse.</p>
+
+<p>It works smoothly when one token of look-ahead is enough to choose a rule, a property called <strong>LL(1)</strong>. Wahoo's statements were designed for it: each starts with its own keyword, except assignment and calls, which both start with a name and are told apart by the token after it (<code>=</code> or <code>(</code>). The one thing recursive descent cannot do is <em>left recursion</em>: a rule <code>sum := sum '+' term</code> would make <code>sum</code> call itself before consuming anything, forever. That is why the grammar above uses repetition, <code>sum := term {'+' term}</code>, and builds the left-leaning tree in a loop.</p>
+
+<h2>Pratt parsing</h2>
+
+<p>Eight levels of expression rules mean eight nested function calls just to parse the number <code>3</code>. In 1973 Vaughan Pratt proposed a neater method, <em>top-down operator precedence</em>: give every infix operator two numbers, a <strong>left and a right binding power</strong>, and parse all expressions with one loop.</p>
+
+<table class="compare">
+  <thead><tr><th>Operators</th><th>Left power</th><th>Right power</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td><code>or</code></td><td>1</td><td>2</td><td>loosest, left-associative</td></tr>
+    <tr><td><code>and</code></td><td>3</td><td>4</td><td>left-associative</td></tr>
+    <tr><td><code>not</code> (prefix)</td><td>—</td><td>5</td><td>applies to a whole comparison</td></tr>
+    <tr><td><code>== != &lt; &lt;= &gt; &gt;=</code></td><td>7</td><td>8</td><td>not chainable (checked separately)</td></tr>
+    <tr><td><code>+ -</code></td><td>9</td><td>10</td><td>left-associative</td></tr>
+    <tr><td><code>* / %</code></td><td>11</td><td>12</td><td>left-associative</td></tr>
+    <tr><td><code>-</code> (prefix)</td><td>—</td><td>13</td><td>binds tightest</td></tr>
+  </tbody>
+</table>
+
+<p>The parser reads an operand, then looks at the next operator. If its left power is at least the minimum it was asked for, it takes the operator and parses the right-hand side with the operator's <em>right</em> power as the new minimum; otherwise it stops and returns what it has. A right power one higher than the left makes a chain group to the left; equal powers would make it group to the right. This is the heart of Wahoo's expression parser:</p>
+
+<pre class="code-block"><code>fn expr_bp(&amp;mut self, min_power: u8) -&gt; PResult&lt;Expr&gt; {
+    let mut lhs = self.prefix()?;                      // a number, a name, (…), -x, not x
+    while let Some((op, left, right)) = infix(&amp;self.peek().kind) {
+        if left &lt; min_power {
+            break;                                     // binds too loosely: let the caller take it
+        }
+        self.advance();
+        let rhs = self.expr_bp(right)?;
+        lhs = Expr::binary(op, lhs, rhs);
+    }
+    Ok(lhs)
+}</code></pre>
+
+<h2>Bottom-up parsing: LL versus LR</h2>
+
+<p>Recursive descent builds the tree from the root down, predicting which rule comes next: it is a <em>top-down</em>, LL parser. The other great family works <em>bottom-up</em>: it shifts tokens onto a stack and, whenever the top of the stack matches the right-hand side of a rule, reduces it to that rule's nonterminal. In 1965 Donald Knuth defined the <strong>LR(k)</strong> grammars that can be parsed this way deterministically, a strictly larger class than LL(k) that includes left-recursive rules. The tables were enormous for the computers of the time, until Frank DeRemer's LALR(1) (1969) made them practical. In 1975 Stephen Johnson's <strong>Yacc</strong> (“Yet Another Compiler-Compiler”) generated LALR parsers from a grammar file, and its descendant Bison is still used.</p>
+
+<p>Generators did not win everywhere. Error messages from table-driven parsers tend to be poor (“syntax error near line 12”), and grammars for real languages are full of special cases. GCC replaced its Bison parser for C++ with a hand-written recursive-descent one in 2004, and did the same for C two years later. Parser generators thrive elsewhere: ANTLR for tools and domain-specific languages, and tree-sitter (2018), which parses incrementally as you type and gives editors such as Neovim and GitHub's code viewer their syntax trees.</p>
+
+<h2>When the parse fails</h2>
+
+<p>A parser that stops at the first syntax error is easy to write and annoying to use. Wahoo's parser uses <strong>panic-mode recovery</strong>: after reporting an error it skips tokens until it reaches a safe point, the start of a line that begins a statement or the <code>}</code> that closes the current block, and resumes from there. Then a typo in line 3 and another in line 9 are reported in the same run. One extra heuristic catches the most common slip of all, a forgotten <code>}</code>: if a new <code>pipe</code> or <code>world</code> appears at the start of a line inside a block, the block is closed there and the error points at it.</p>
+
+<pre class="code-block"><code>error[E101]: expected `}`, found `world`
+ --&gt; level.wahoo:5:1
+  |
+5 | world 1-1 {
+  | ^^^^^ Lakitu lost the thread here</code></pre>
+
+<p>Recovery is a matter of judgement, not theory: skip too little and one mistake produces a cascade of false errors; skip too much and real ones are missed. Wahoo also stops after twenty errors, because by then the later ones are usually echoes of the first. A program that parses is not yet a correct program, though: <code>wahoo(lifes)</code> is grammatical even if nobody ever declared <code>lifes</code>. Meaning is the next chapter's business.</p>
+
+<section class="references">
+  <h2>References</h2>
+  <ol>
+    <li>N. Chomsky (1956). “Three Models for the Description of Language”. <em>IRE Transactions on Information Theory</em>, 2(3).</li>
+    <li>J. W. Backus (1959). “The Syntax and Semantics of the Proposed International Algebraic Language of the Zurich ACM-GAMM Conference”. <em>Proceedings of the International Conference on Information Processing</em>, UNESCO.</li>
+    <li>P. Naur (ed.) (1960). “Report on the Algorithmic Language ALGOL 60”. <em>Communications of the ACM</em>, 3(5).</li>
+    <li>D. E. Knuth (1965). “On the Translation of Languages from Left to Right”. <em>Information and Control</em>, 8(6).</li>
+    <li>V. R. Pratt (1973). “Top Down Operator Precedence”. <em>Proceedings of the 1st ACM Symposium on Principles of Programming Languages</em>.</li>
+    <li>S. C. Johnson (1975). <em>Yacc: Yet Another Compiler-Compiler</em>. Bell Laboratories Computing Science Technical Report 32.</li>
+  </ol>
+</section>

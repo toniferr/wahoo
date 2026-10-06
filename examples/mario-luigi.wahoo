@@ -1,0 +1,14 @@
+// FizzBuzz, Mushroom Kingdom edition: multiples of 3 are Mario's, of 5 Luigi's, of both, the brothers'.
+world 1-1 {
+  run n from 1 to 15 {
+    question n % 15 == 0 {
+      wahoo("Mario & Luigi!")
+    } else question n % 3 == 0 {
+      wahoo("Mario")
+    } else question n % 5 == 0 {
+      wahoo("Luigi")
+    } else {
+      wahoo(n)
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "title": "From Note G to WebAssembly",
+  "dek": "Two centuries of turning text into running programs: the first interpreters and compilers, the theory of grammars and automata, optimisers, virtual machines and JITs, and the browser as a compilation target. Filter by chapter to follow one thread.",
+  "eras": [
+    {"from": 1840, "to": 1952, "label": "1843 – 1951", "title": "Before compilers", "text": "Programs are written as numbers, or wired by hand. Then they start living in memory, and the first interpreters appear."},
+    {"from": 1952, "to": 1960, "label": "1952 – 1959", "title": "The first compilers", "text": "Translating formulas into machine code automatically, and convincing programmers that the result can be fast."},
+    {"from": 1960, "to": 1980, "label": "1960 – 1979", "title": "Theory meets practice", "text": "Grammars, automata and types give compilers a mathematical foundation; Lex and Yacc make them easier to build."},
+    {"from": 1980, "to": 1995, "label": "1980 – 1994", "title": "Optimising and portable", "text": "Register allocation, SSA and free compilers; dynamic languages learn to compile themselves on the fly."},
+    {"from": 1995, "to": 2010, "label": "1995 – 2009", "title": "Virtual machines and JITs", "text": "Bytecode becomes mainstream with Java, and just-in-time compilers make dynamic languages fast."},
+    {"from": 2010, "to": 2030, "label": "2010 – today", "title": "The browser as a target", "text": "Compilers that compile themselves, languages that compile to JavaScript, and a portable bytecode for the web."}
+  ],
+  "events": [
+    {"year": 1843, "title": "Note G", "who": "Ada Lovelace", "chapter": "execution", "text": "In her notes on Babbage's Analytical Engine, Lovelace writes out step by step how the machine would compute Bernoulli numbers, often called the first published program."},
+    {"year": 1945, "title": "The stored-program computer", "who": "John von Neumann", "chapter": "runtime", "kind": "milestone", "text": "The <em>First Draft of a Report on the EDVAC</em> describes a machine whose program lives in memory alongside its data. Programs become data that other programs can write."},
+    {"year": 1949, "title": "Short Code", "who": "John Mauchly, William Schmitt", "chapter": "execution", "text": "Programmers write arithmetic expressions in a code that an interpreter carries out, at about fifty times the cost of machine code."},
+    {"year": 1951, "title": "Regular events and finite automata", "who": "Stephen Kleene", "chapter": "lexing", "text": "Studying nerve nets, Kleene shows that regular expressions describe exactly what finite automata recognise: the theory behind every lexer."},
+
+    {"year": 1952, "title": "Autocode", "who": "Alick Glennie", "chapter": "execution", "text": "For the Manchester Mark 1, often considered the first compiled programming language."},
+    {"year": 1952, "title": "The A-0 system", "who": "Grace Hopper", "chapter": "execution", "text": "Hopper's team at Remington Rand builds a system that assembles programs from a library of routines, and starts calling such tools “compilers”."},
+    {"year": 1956, "title": "Three models for the description of language", "who": "Noam Chomsky", "chapter": "parsing", "text": "Chomsky classifies grammars by their power. Context-free grammars, one level above regular ones, become the standard way of describing programming languages."},
+    {"year": 1957, "title": "FORTRAN", "who": "John Backus and his team at IBM", "chapter": "optimization", "kind": "milestone", "text": "The first FORTRAN compiler produces code nearly as fast as an expert's, and proves that high-level languages can be practical."},
+    {"year": 1958, "title": "Lisp and the first eval", "who": "John McCarthy, Steve Russell", "chapter": "execution", "text": "McCarthy defines Lisp through a function that evaluates Lisp; Russell implements it on the IBM 704, creating the first Lisp interpreter."},
+
+    {"year": 1960, "title": "The ALGOL 60 report and BNF", "who": "John Backus, Peter Naur et al.", "chapter": "parsing", "kind": "milestone", "text": "The syntax of a programming language is defined precisely, for the first time, with a grammar notation: Backus–Naur form."},
+    {"year": 1962, "title": "A compiler that compiles itself", "who": "Timothy Hart, Michael Levin", "chapter": "execution", "text": "The Lisp 1.5 compiler is written in Lisp: the first self-hosting compiler."},
+    {"year": 1965, "title": "LR parsing", "who": "Donald Knuth", "chapter": "parsing", "text": "Knuth defines the grammars that can be parsed bottom-up, deterministically, reading left to right: the LR(k) family."},
+    {"year": 1968, "title": "From regular expressions to automata", "who": "Ken Thompson", "chapter": "lexing", "text": "Thompson's construction turns a regular expression into an automaton mechanically; it powers grep, editors and lexer generators."},
+    {"year": 1969, "title": "Principal types", "who": "Roger Hindley", "chapter": "semantics", "text": "Every expression of combinatory logic has a most general type that can be computed: the seed of type inference."},
+    {"year": 1970, "title": "Control flow analysis", "who": "Frances Allen", "chapter": "optimization", "text": "Basic blocks and control-flow graphs: the framework every optimiser still uses. With John Cocke she publishes the catalogue of optimising transformations a year later."},
+    {"year": 1972, "title": "C", "who": "Dennis Ritchie", "chapter": "execution", "text": "A language close enough to the machine to write an operating system in. Unix is rewritten in C in 1973, and C becomes the portable assembler of the industry."},
+    {"year": 1973, "title": "Top-down operator precedence", "who": "Vaughan Pratt", "chapter": "parsing", "text": "Binding powers instead of grammar levels: the expression-parsing method that Wahoo uses."},
+    {"year": 1973, "title": "A unified approach to optimisation", "who": "Gary Kildall", "chapter": "optimization", "text": "Data-flow analyses become instances of one iterative framework over the control-flow graph."},
+    {"year": 1975, "title": "Lex and Yacc", "who": "Mike Lesk, Eric Schmidt, Stephen Johnson", "chapter": "lexing", "text": "At Bell Labs, generators that write a lexer from regular expressions and an LALR parser from a grammar. Their descendants Flex and Bison are still used."},
+    {"year": 1977, "title": "UCSD Pascal and p-code", "who": "Kenneth Bowles and students", "chapter": "runtime", "text": "Pascal compiled to bytecode for a virtual machine runs on many microcomputers: “write once, run anywhere” twenty years before Java."},
+    {"year": 1978, "title": "A theory of type polymorphism", "who": "Robin Milner", "chapter": "semantics", "text": "Algorithm W infers the most general types of a whole ML program without annotations. Haskell, OCaml and F# inherit it."},
+
+    {"year": 1981, "title": "Register allocation by graph colouring", "who": "Gregory Chaitin et al.", "chapter": "codegen", "text": "Values that are alive at the same time cannot share a register: allocating registers becomes colouring a graph."},
+    {"year": 1984, "title": "Reflections on Trusting Trust", "who": "Ken Thompson", "chapter": "execution", "text": "A compiler can hide a back door in every program it compiles, including itself, leaving no trace in any source code."},
+    {"year": 1984, "title": "Dynamic translation of Smalltalk", "who": "Peter Deutsch, Allan Schiffman", "chapter": "runtime", "text": "Bytecode is translated to machine code when a method is first called, and cached: an ancestor of just-in-time compilation."},
+    {"year": 1987, "title": "GCC 1.0", "who": "Richard Stallman", "chapter": "codegen", "text": "A free, retargetable optimising C compiler. It grows into the GNU Compiler Collection."},
+    {"year": 1988, "title": "Static single assignment", "who": "Barry Rosen, Mark Wegman, Kenneth Zadeck", "chapter": "optimization", "text": "Every variable assigned exactly once: the intermediate form that nearly every optimising compiler uses today."},
+    {"year": 1991, "title": "Polymorphic inline caches", "who": "Urs Hölzle, Craig Chambers, David Ungar", "chapter": "runtime", "text": "The Self project learns to optimise dynamic code from the types it actually sees: the techniques behind HotSpot and V8."},
+    {"year": 1991, "title": "Python 0.9", "who": "Guido van Rossum", "chapter": "execution", "text": "A dynamic language compiled to bytecode for a virtual machine, which becomes one of the most used languages in the world."},
+
+    {"year": 1995, "title": "Java and JavaScript", "who": "James Gosling; Brendan Eich", "chapter": "execution", "kind": "milestone", "text": "Java ships portable bytecode for the JVM; JavaScript, written in ten days, is interpreted inside Netscape Navigator."},
+    {"year": 1999, "title": "HotSpot", "who": "Sun Microsystems (from the Self and Strongtalk team)", "chapter": "runtime", "text": "A JVM that interprets first and compiles only the hot methods, with optimisations based on what the program actually does."},
+    {"year": 2003, "title": "LLVM 1.0", "who": "Chris Lattner, Vikram Adve", "chapter": "codegen", "text": "A reusable optimiser and back end around a well-defined SSA IR. Clang, Rust, Swift and Zig are built on it."},
+    {"year": 2004, "title": "GCC drops its generated C++ parser", "who": "GCC developers", "chapter": "parsing", "text": "GCC 3.4 replaces its Bison grammar for C++ with a hand-written recursive-descent parser; the C front end follows in 2006."},
+    {"year": 2008, "title": "V8", "who": "Lars Bak and the Chrome team", "chapter": "runtime", "kind": "milestone", "text": "JavaScript compiled straight to machine code makes web applications fast enough to replace desktop software."},
+
+    {"year": 2011, "title": "Rust compiles itself", "who": "Graydon Hoare and the Rust team", "chapter": "execution", "text": "The Rust compiler, first written in OCaml, is rewritten in Rust and bootstraps itself. Rust 1.0 follows in 2015."},
+    {"year": 2012, "title": "TypeScript", "who": "Anders Hejlsberg (Microsoft)", "chapter": "execution", "text": "A typed language that compiles to JavaScript: the type checker catches errors, then the types are erased."},
+    {"year": 2013, "title": "asm.js", "who": "Luke Wagner, Alon Zakai, David Herman (Mozilla)", "chapter": "runtime", "text": "A strict subset of JavaScript that engines can compile ahead of time shows that C and C++ can run in the browser at near-native speed."},
+    {"year": 2015, "title": "Compiler errors for humans", "who": "Evan Czaplicki", "chapter": "semantics", "text": "Elm redesigns its error messages as plain explanations with suggestions; Rust and others follow, and Wahoo's messages copy the recipe."},
+    {"year": 2015, "title": "Go compiles itself", "who": "The Go team", "chapter": "execution", "text": "Go 1.5 removes the last C from its compiler and runtime, translated to Go mostly by a program."},
+    {"year": 2017, "title": "WebAssembly ships", "who": "Mozilla, Google, Microsoft, Apple", "chapter": "runtime", "kind": "milestone", "text": "A portable, validated bytecode, designed together by all four browser makers, runs in Firefox, Chrome, Edge and Safari."},
+    {"year": 2018, "title": "Tree-sitter", "who": "Max Brunsfeld (GitHub)", "chapter": "parsing", "text": "An incremental parser generator that re-parses code as you type and gives editors accurate syntax trees."},
+    {"year": 2019, "title": "WebAssembly becomes a W3C Recommendation", "who": "W3C WebAssembly Working Group", "chapter": "runtime", "text": "The fourth language of the web, after HTML, CSS and JavaScript."},
+    {"year": 2024, "title": "A JIT for CPython", "who": "Brandt Bucher and the CPython team", "chapter": "execution", "text": "Python 3.13 includes an experimental copy-and-patch JIT compiler, disabled by default: the reference Python starts compiling to machine code."},
+    {"year": 2026, "title": "Wahoo", "who": "This site", "text": "A compiler from the Mushroom Kingdom to WebAssembly, written in Rust, running in your browser. Try it in the <a href=\"@playground\">playground</a>."}
+  ]
+}

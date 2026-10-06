@@ -1,0 +1,117 @@
+<!--meta
+{
+  "slug": "analisis-semantico",
+  "title": "Análisis semántico",
+  "chain": "Semántica",
+  "headline": "¿Tiene sentido?",
+  "dek": "Un programa puede ser perfectamente gramatical y no significar nada: un nombre que nadie declaró, un número usado como condición, una función que olvida devolver. El comprobador resuelve cada nombre y da un tipo a cada expresión, para que estos fallos se detecten antes de ejecutar el programa.",
+  "era": "1958 – hoy",
+  "people": ["Roger Hindley", "Robin Milner", "Henry Gordon Rice", "Vladimir Levenshtein"],
+  "concepts": ["Ámbitos y tablas de símbolos", "Comprobación de tipos", "Inferencia de tipos", "Desazucarado", "Análisis conservador"]
+}
+-->
+
+<p>En 1957 Noam Chomsky propuso una frase para mostrar que gramática y significado son cosas distintas: <em>«Las incoloras ideas verdes duermen furiosamente.»</em> Cada palabra está en su sitio, y no significa nada. A los programas les pasa lo mismo. <code>wahoo(vida)</code> se analiza de maravilla, pero si el programa solo declaró <code>vidas</code>, pide algo que no existe. <code>question vidas { … }</code> es gramatical, pero un bloque question necesita una respuesta de sí o no, y <code>vidas</code> es un número.</p>
+
+<p>La fase que los caza es el <strong>análisis semántico</strong>. En Wahoo es <code>checker.rs</code>, y lo que produce ya no es un árbol sintáctico sino una representación más pequeña y más estricta (la <em>HIR</em>) en la que cada nombre se ha sustituido por aquello a lo que se refiere y cada expresión lleva su tipo. El optimizador y el generador de código solo ven esa forma, y pueden fiarse de ella.</p>
+
+<h2>Nombres y ámbitos</h2>
+
+<p>La primera pregunta sobre un nombre es <em>a qué cosa</em> se refiere. Wahoo, como casi todos los lenguajes modernos, usa <strong>ámbito léxico</strong>: un nombre se refiere a la declaración más cercana que lo rodea en el texto del programa. Una <code>coin</code> declarada dentro de un bloque <code>question</code> vive hasta la <code>}</code> de ese bloque; dentro, puede <em>ocultar</em> a una variable del mismo nombre declarada fuera.</p>
+
+<pre class="wahoo">world 1-1 {
+  coin x = 1
+  question star {
+    coin x = "interior"   // otra x, de otro tipo
+    wahoo(x)              // interior
+  }
+  wahoo(x)                // 1
+}</pre>
+
+<p>El comprobador mantiene una <strong>tabla de símbolos</strong> como una pila de ámbitos: entrar en un bloque apila un ámbito vacío, una <code>coin</code> añade un nombre al de arriba, salir del bloque lo desapila, y buscar un nombre recorre la pila de arriba abajo. Desapilar es también el momento adecuado para notar una variable que se declaró y nunca se leyó, cosa que Wahoo avisa.</p>
+
+<aside class="note">La alternativa, el <strong>ámbito dinámico</strong>, resuelve un nombre mirando quién llamó a quién durante la ejecución. Los primeros Lisp funcionaban así, igual que Emacs Lisp por defecto y las variables <code>local</code> de Bash. Hace que el significado de una función dependa de quién la llama, y por eso casi todos los lenguajes lo abandonaron.</aside>
+
+<p>Las pipes se tratan en dos pasadas. La primera recoge la firma de cada pipe del fichero (nombre, tipos de los parámetros, tipo devuelto); la segunda comprueba los cuerpos. Eso permite que una pipe llame a otra definida más abajo, o a sí misma: cuando se comprueba cualquier cuerpo, ya se conocen todas las firmas.</p>
+
+<h2>Tipos</h2>
+
+<p>Un tipo es una promesa sobre qué valores puede producir una expresión y, por tanto, sobre qué operaciones tienen sentido con ella. Wahoo tiene tres: <code>coins</code> (números enteros), <code>switch</code> (<code>star</code> o <code>goomba</code>) y <code>text</code>. La sorpresa es que al ejecutar los tres son lo mismo, un entero de 32 bits: un switch es 0 o 1, y un text es la dirección de memoria de sus bytes (<a href="@ch:codegen">capítulo 04</a>). Nada en la máquina te impide sumar una dirección a un número. El comprobador de tipos sí lo impide, antes de que el programa exista.</p>
+
+<p>Los lenguajes difieren en <em>cuándo</em> comprueban. Los de <strong>tipos estáticos</strong> (Wahoo, C, Java, Rust, Haskell) comprueban antes de ejecutar, así que un error de tipos es un error de compilación. Los de <strong>tipos dinámicos</strong> (Python, JavaScript, Ruby) adjuntan los tipos a los valores y comprueban cada operación en el momento. También difieren en lo indulgentes que son: JavaScript responde a <code>"1" + 1</code> con <code>"11"</code> y a <code>"1" - 1</code> con <code>0</code>, convirtiendo en silencio, mientras que Python da un error.</p>
+
+<p>Las reglas de tipos suelen escribirse como <strong>reglas de inferencia</strong>: si se cumplen los hechos de encima de la línea, se cumple el de debajo. <code>e : T</code> se lee «la expresión <code>e</code> tiene tipo <code>T</code>». Estas son cuatro de las de Wahoo:</p>
+
+<div class="rules">
+  <span class="rule"><span class="premises">a : coins &nbsp;&nbsp; b : coins</span><span class="conclusion">a + b : coins</span><span class="rule-name">suma</span></span>
+  <span class="rule"><span class="premises">a : coins &nbsp;&nbsp; b : coins</span><span class="conclusion">a &lt; b : switch</span><span class="rule-name">menor</span></span>
+  <span class="rule"><span class="premises">a : T &nbsp;&nbsp; b : T</span><span class="conclusion">a == b : switch</span><span class="rule-name">igual</span></span>
+  <span class="rule"><span class="premises">c : switch &nbsp;&nbsp; cuerpo ok</span><span class="conclusion">question c { cuerpo } ok</span><span class="rule-name">question</span></span>
+</div>
+
+<p>El comprobador las aplica de abajo arriba sobre el árbol: el tipo de <code>vidas + 1</code> se calcula a partir de los tipos de <code>vidas</code> y de <code>1</code>, y luego se compara con lo que necesita su contexto. Cuando una regla falla, la expresión recibe un <em>tipo error</em> especial, compatible con todo. Sin él, un único nombre desconocido en <code>nada + 1 &gt; 2</code> produciría tres errores (el nombre, la suma, la comparación); con él, se ve uno.</p>
+
+<figure class="demo" data-demo="semantics/errors">
+  <figcaption>Una galería de programas que se analizan bien pero no tienen sentido. Elige uno y edítalo: el comprobador se ejecuta con cada pulsación. Pulsa un diagnóstico para ir al código que señala. Fíjate en las sugerencias: un nombre mal escrito recibe el declarado más parecido, y los tipos de otros lenguajes (<code>int</code>, <code>bool</code>, <code>string</code>) su equivalente en Wahoo.</figcaption>
+</figure>
+
+<h2>Inferencia de tipos</h2>
+
+<p>Wahoo nunca te obliga a escribir el tipo de una variable: en <code>coin vidas = 3</code> el comprobador <em>infiere</em> <code>coins</code> a partir del valor. Aun así puedes anotarlo (<code>coin vidas: coins = 3</code>), y entonces el comprobador verifica que el valor concuerda. Solo las firmas de las pipes exigen tipos, que es el compromiso habitual en Rust, Swift, Kotlin, Go, C# y el C++ moderno: tipos en las fronteras, inferencia dentro.</p>
+
+<p>Algunos lenguajes van mucho más allá. Roger Hindley (1969) y, de forma independiente, Robin Milner (1978) mostraron cómo inferir el tipo <em>más general</em> de cada expresión de un programa sin ninguna anotación, reuniendo ecuaciones entre tipos desconocidos y resolviéndolas por unificación. El algoritmo de Hindley–Milner es el corazón de ML, OCaml, F# y Haskell: puedes escribir <code>map f xs</code> sin un solo tipo y el compilador deduce que tiene tipo <code>(a → b) → [a] → [b]</code> para cualesquiera tipos <code>a</code> y <code>b</code>.</p>
+
+<h2>Errores para personas</h2>
+
+<p>Los mensajes de error de un compilador son su interfaz de usuario, y durante décadas fueron espantosos. El cambio vino de lenguajes que los trataron como un problema de diseño: los «errores de compilador para humanos» de Elm (2015) y los diagnósticos de Rust fijaron un estándar de frases claras, la posición exacta y una sugerencia concreta. Wahoo sigue la misma receta. Cada diagnóstico tiene un título preciso, una etiqueta bajo el código culpable (donde se deja hablar al Reino Champiñón) y, cuando es posible, una pista:</p>
+
+<pre class="code-block"><code>error[E205]: nombre desconocido `vida`
+ --&gt; nivel.wahoo:3:9
+  |
+3 |   wahoo(vida)
+  |         ^^^^ Bowser no lo ha oído nunca
+  = pista: ¿querías decir `vidas`?</code></pre>
+
+<p>La sugerencia sale de la <strong>distancia de edición</strong> (Levenshtein, 1965): el menor número de inserciones, borrados o sustituciones de un carácter que convierten una palabra en otra. <code>vida</code> está a distancia 1 de <code>vidas</code>, así que, si ese nombre está en el ámbito, se ofrece. Un umbral que crece con la longitud del nombre mantiene las sugerencias razonables.</p>
+
+<h2>Comprobaciones que no pueden ser perfectas</h2>
+
+<p>Una pipe que promete un valor debe entregarlo por todos los caminos. El comprobador recorre cada cuerpo y se pregunta: ¿todo camino a través de él termina en un <code>flag</code>? Un <code>flag</code> sí; un <code>question</code> con <code>else</code> sí, si ambas ramas lo hacen; un bucle nunca cuenta, porque puede ejecutarse cero veces. Esta pipe se rechaza:</p>
+
+<pre class="wahoo">pipe signo(n: coins) -&gt; coins {
+  question n &gt; 0 {
+    flag 1
+  } else question n &lt; 0 {
+    flag -1
+  }
+}                        // ¿y cuando n es 0?</pre>
+
+<p>Y, más sorprendente, también <code>pipe uno() -&gt; coins { question 1 &lt; 2 { flag 1 } }</code>, que evidentemente siempre devuelve. El comprobador no evalúa las condiciones; solo mira la forma del código. No es pereza. Por el teorema de Rice (1953), toda pregunta no trivial sobre lo que un programa <em>hace</em> es indecidible, así que cualquier comprobador tiene que rechazar algunos programas correctos o aceptar algunos erróneos. Los sistemas de tipos y los análisis de flujo eligen ser <strong>conservadores</strong>: ante la duda, rechazar, y que el programador añada un <code>else</code>. El «missing return statement» de Java y el «mismatched types» de Rust hacen la misma elección.</p>
+
+<p>El mismo tipo de análisis, en sentido contrario, señala el <strong>código inalcanzable</strong> (sentencias tras un <code>flag</code>, con un aviso) y la división entre un cero literal («esto cae a un foso al ejecutarse»).</p>
+
+<h2>Desazucarado</h2>
+
+<p>Algunas construcciones existen solo por comodidad del programador (son «azúcar sintáctico»). El comprobador las reescribe en un núcleo más pequeño, para que las fases siguientes tengan menos casos que tratar. En Wahoo:</p>
+
+<ul>
+  <li><code>power_up x</code> se convierte en <code>x = x + 1</code>, y <code>damage x by 5</code> en <code>x = x - 5</code>;</li>
+  <li><code>else question …</code> se convierte en un bloque <code>else</code> que contiene un <code>question</code>;</li>
+  <li>cada variable se convierte en una casilla numerada (las variables ocultas reciben números distintos), y cada pipe en una función numerada;</li>
+  <li>cada texto literal se guarda una sola vez, así que dos textos idénticos son el mismo texto.</li>
+</ul>
+
+<p>Tras esta fase el programa es pequeño, explícito y se sabe que está bien formado. Por fin el compilador puede empezar a pensar en la máquina.</p>
+
+<section class="references">
+  <h2>Referencias</h2>
+  <ol>
+    <li>N. Chomsky (1957). <em>Syntactic Structures</em>. Mouton.</li>
+    <li>H. G. Rice (1953). “Classes of Recursively Enumerable Sets and Their Decision Problems”. <em>Transactions of the American Mathematical Society</em>, 74(2).</li>
+    <li>V. I. Levenshtein (1965). «Códigos binarios capaces de corregir borrados, inserciones e inversiones» (en ruso). <em>Doklady Akademii Nauk SSSR</em>, 163(4).</li>
+    <li>R. Hindley (1969). “The Principal Type-Scheme of an Object in Combinatory Logic”. <em>Transactions of the American Mathematical Society</em>, 146.</li>
+    <li>R. Milner (1978). “A Theory of Type Polymorphism in Programming”. <em>Journal of Computer and System Sciences</em>, 17(3).</li>
+    <li>B. C. Pierce (2002). <em>Types and Programming Languages</em>. MIT Press.</li>
+    <li>E. Czaplicki (2015). “Compiler Errors for Humans”. Blog de <em>elm-lang.org</em>.</li>
+  </ol>
+</section>

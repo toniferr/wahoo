@@ -1,0 +1,13 @@
+[package]
+name = "wahoo-web"
+description = "The Wahoo compiler compiled to WebAssembly, with a minimal C ABI for the browser playground"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wahoo = { path = "../wahoo" }

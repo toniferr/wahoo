@@ -1,0 +1,24 @@
+[package]
+name = "wahoo-cli"
+description = "Command-line driver for the Wahoo compiler: build, run and inspect every phase"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "wahoo"
+path = "src/main.rs"
+
+[features]
+default = ["run"]
+# `wahoo run`: validate and execute modules with the wasmi interpreter.
+run = ["dep:wasmi"]
+
+[dependencies]
+wahoo = { path = "../wahoo" }
+# No `wat` feature: Wahoo writes its own WAT.
+wasmi = { version = "2.0.0", default-features = false, features = ["stable", "std", "validate", "auto-dispatch"], optional = true }
