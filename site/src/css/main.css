@@ -7,6 +7,7 @@
   --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --qmark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 14'%3E%3Cpath d='M2.6 4.4A2.4 2.4 0 1 1 6.54 6.24C5.4 7 5 7.5 5 8.6V9' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'/%3E%3Ccircle cx='5' cy='12' r='1.3'/%3E%3C/svg%3E");
 
   --col: 680px;
   --outdent: 150px;
@@ -201,10 +202,23 @@ code, kbd {
   border-radius: 6px;
   background: var(--block);
   border: 2px solid var(--block-edge);
-  color: #fff;
   font: 800 16px/1 var(--sans);
-  text-shadow: 1px 1px 0 var(--block-edge);
+  --q-size: 13px;
+  --q-shadow: 1px;
 }
+
+/* The "?" on the brand mark and the hero block is drawn, not typed: a system-ui glyph sits at a different height in
+   every font, so it never looked centred. The text stays in the markup (transparent) and keeps the box's baseline. */
+.brand-mark, .hero-block { position: relative; color: transparent; text-shadow: none; user-select: none; }
+.brand-mark::before, .brand-mark::after, .hero-block::before, .hero-block::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  -webkit-mask: var(--qmark) center / auto var(--q-size) no-repeat;
+  mask: var(--qmark) center / auto var(--q-size) no-repeat;
+}
+.brand-mark::before, .hero-block::before { background: var(--block-edge); translate: var(--q-shadow) var(--q-shadow); }
+.brand-mark::after, .hero-block::after { background: #fff; }
 
 .site-nav { display: flex; align-items: center; gap: 6px; }
 .site-nav > a, .chapters-menu > summary {
@@ -1144,9 +1158,9 @@ table.compare td:first-child { font-weight: 700; color: var(--fg); white-space: 
   border-radius: 0.16em;
   background: var(--block);
   border: 0.06em solid var(--block-edge);
-  color: #fff;
   font-size: 0.9em;
-  text-shadow: 0.04em 0.04em 0 var(--block-edge);
+  --q-size: 0.74em;
+  --q-shadow: 0.04em;
   animation: bump 2.8s ease-in-out infinite;
 }
 @keyframes bump { 0%, 82%, 100% { transform: translateY(0); } 88% { transform: translateY(-0.18em); } }
