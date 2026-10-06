@@ -35,6 +35,10 @@ You need [Rust](https://rustup.rs) (stable, edition 2024: 1.85 or newer). To bui
 rustup target add wasm32-unknown-unknown    # only for the site
 ```
 
+`wasm32-unknown-unknown` is Rust's name for plain WebAssembly with no operating system underneath (the triple is
+architecture-vendor-system, and the last two are "none"): it is what the site uses to run the compiler itself in the
+browser. Running Wahoo programs from the command line does not need it.
+
 ### Run a program
 
 ```sh
