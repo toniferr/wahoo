@@ -10,7 +10,9 @@
     "reference": "El lenguaje",
     "timeline": "Historia",
     "lang": "Idioma",
-    "theme": "Cambiar entre tema claro y oscuro"
+    "theme": "Cambiar entre tema claro y oscuro",
+    "intro": "Introducción",
+    "start": "Primeros pasos"
   },
   "chapter": {
     "label": "Capítulo",
@@ -21,6 +23,9 @@
     "prevnext": "Capítulo anterior y siguiente",
     "prev": "Anterior",
     "next": "Siguiente"
+  },
+  "intro": {
+    "slug": "introduccion"
   },
   "playground": {
     "slug": "playground",
@@ -51,6 +56,21 @@
     "errors": "Un nivel lleno de errores"
   },
   "demos": {
+    "splash": {
+      "label": "Animación: una línea de Wahoo pasa por el compilador real. Un robot golpea un bloque interrogación y cada golpe saca un token; los tokens crecen como un árbol sintáctico unido por tuberías; el árbol baja por una tubería y sale convertido en bytes de WebAssembly; y el programa se ejecuta.",
+      "phasesLabel": "Fases del compilador",
+      "phase": { "lex": "Análisis léxico", "parse": "Análisis sintáctico", "check": "Comprobación", "gen": "Generación de código", "run": "Ejecución" },
+      "cap": {
+        "lex": "El analizador léxico real corta el texto en {n} tokens: cada golpe al bloque saca uno.",
+        "parse": "El analizador sintáctico encaja los tokens en un árbol de {n} nodos.",
+        "check": "El comprobador resuelve cada nombre y comprueba cada tipo.",
+        "gen": "El generador de código convierte el árbol en {n} bytes de WebAssembly.",
+        "run": "Tu navegador ejecuta esos bytes. ¡Nivel superado!",
+        "error": "Game over: {msg}"
+      },
+      "pause": "Pausa", "play": "Seguir", "next": "Siguiente nivel", "yours": "TU LÍNEA · level.wahoo",
+      "tryHint": "coin salto = 2 * 21", "gameOver": "GAME OVER", "clear": "¡NIVEL SUPERADO!"
+    },
     "core": { "error": "Esta figura no ha podido arrancar. Recarga la página para intentarlo de nuevo." },
     "run": {
       "pit": "Has caído a un foso: división entre cero.",

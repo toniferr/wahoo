@@ -33,7 +33,7 @@ COMPILER_WASM = REPO / "target" / "wasm32-unknown-unknown" / "release" / "wahoo_
 EXAMPLES = REPO / "examples"
 
 OG_LOCALE = {"en": "en_GB", "es": "es_ES"}
-PAGES = ("playground", "reference", "timeline")
+PAGES = ("intro", "playground", "reference", "timeline")
 
 WARNINGS: list[str] = []
 
@@ -192,7 +192,7 @@ def render_code(text: str) -> str:
 
 
 def resolve_links(text: str, site: dict, lang: str, here: str, where: str) -> str:
-    """href="@ch:<id>[#frag]", "@home", "@playground", "@reference", "@timeline" -> relative URLs (validated)."""
+    """href="@ch:<id>[#frag]", "@home", "@intro", "@playground", "@reference", "@timeline" -> relative URLs (validated)."""
     by_id = {c["id"]: c for c in site["chapter_list"][lang]}
 
     def repl(m: re.Match) -> str:
@@ -317,7 +317,9 @@ def same_page(site: dict, lang: str, current: str) -> str:
 def render_header(site: dict, lang: str, here: str, current: str) -> str:
     ui = site["ui"][lang]
     home = rel_url(here, page_path(site, lang, "home"))
-    items = []
+    intro = rel_url(here, page_path(site, lang, "intro"))
+    cur = ' aria-current="page"' if current == "intro" else ""
+    items = [f'<li class="menu-intro"><a href="{intro}"{cur}><span class="num">·</span>{esc(ui["nav"]["intro"])}</a></li>']
     for c in site["chapter_list"][lang]:
         url = rel_url(here, page_path(site, lang, "chapter", c))
         cur = ' aria-current="page"' if current == c["id"] else ""
@@ -331,6 +333,10 @@ def render_header(site: dict, lang: str, here: str, current: str) -> str:
         pages.append(f'<a class="nav-{p}" href="{url}"{cur}>{esc(ui["nav"][p])}</a>')
         # On small screens the header hides these links and the menu shows them instead.
         items.append(f'<li class="menu-extra"><a href="{url}"{cur}><span class="num">·</span>{esc(ui["nav"][p])}</a></li>')
+    # Getting started (install and run the compiler) lives in the README, next to the code.
+    start = f'{site["repo"]}#getting-started'
+    pages.append(f'<a class="nav-start" href="{esc(start)}">{esc(ui["nav"]["start"])}<span class="ext" aria-hidden="true">↗</span></a>')
+    items.append(f'<li class="menu-extra"><a href="{esc(start)}"><span class="num">↗</span>{esc(ui["nav"]["start"])}</a></li>')
     links = []
     for other in site["langs"]:
         target = same_page(site, other, current)
@@ -441,19 +447,19 @@ def render_chapter(site: dict, lang: str, ch: dict, here: str) -> tuple[str, lis
 
 
 def render_home(site: dict, lang: str, here: str) -> tuple[str, list[str]]:
+    """The home page is only the title screen; the guided tour starts on the introduction page."""
     _, body = read_fragment(CONTENT / lang / "home.html")
     where = f"{lang}/home.html"
-    body = body.replace("<!--chain-->", render_chain(site, lang, here))
-    body = transform(body, site, lang, here, where)
-    return f'<article class="home">{body}</article>', demo_scripts(body, where)
+    body = transform(body.replace("{repo}", esc(site["repo"])), site, lang, here, where)
+    return body, demo_scripts(body, where)
 
 
 def render_page(site: dict, lang: str, page: str, here: str) -> tuple[str, dict, list[str]]:
-    """playground and reference: a meta block (title, dek) and an HTML body; h2s make the table of contents."""
+    """intro, playground and reference: a meta block (title, dek) and an HTML body; h2s make the table of contents."""
     meta, body = read_fragment(CONTENT / lang / f"{page}.html")
     where = f"{lang}/{page}.html"
     ui = site["ui"][lang]
-    body = transform(body, site, lang, here, where)
+    body = transform(body.replace("<!--chain-->", render_chain(site, lang, here)), site, lang, here, where)
     body, toc = add_heading_ids(body)
     toc_html = ""
     if toc and meta.get("toc", True):
@@ -616,7 +622,7 @@ def build() -> None:
                    main=main, demos=demos, body_class="page-home", current="home")
         count += 1
 
-        for page in ("playground", "reference"):
+        for page in ("intro", "playground", "reference"):
             here = page_path(site, lang, page)
             main, meta, demos = render_page(site, lang, page, here)
             write_page(site, lang, here, assets, title=f'{meta["title"]} · {ui["site_short"]}', description=meta["dek"],

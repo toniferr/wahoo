@@ -158,6 +158,10 @@ site/
         └── demos/<group>.js   interactive figures for each chapter and the playground
 ```
 
+The home page is a title screen: a line of Wahoo goes through the real compiler as a tiny level (tokens pop out of
+a ? block, grow into the syntax tree, go down a pipe and come out as WebAssembly bytes, and the program runs), and
+visitors can type their own line (`js/demos/splash.js`). The guided tour starts on the introduction page.
+
 Seven chapters: execution models (compiled, interpreted, bytecode, JIT, transpiled, with a dozen real languages
 compared), lexing, parsing, semantic analysis, code generation, optimisation and the runtime (WebAssembly), plus the
 playground, the language reference and a history of compilers from 1843 to today.

@@ -10,7 +10,9 @@
     "reference": "Language",
     "timeline": "History",
     "lang": "Language",
-    "theme": "Switch between light and dark theme"
+    "theme": "Switch between light and dark theme",
+    "intro": "Introduction",
+    "start": "Get started"
   },
   "chapter": {
     "label": "Chapter",
@@ -21,6 +23,9 @@
     "prevnext": "Previous and next chapter",
     "prev": "Previous",
     "next": "Next"
+  },
+  "intro": {
+    "slug": "introduction"
   },
   "playground": {
     "slug": "playground",
@@ -51,6 +56,21 @@
     "errors": "A level full of errors"
   },
   "demos": {
+    "splash": {
+      "label": "Animation: a line of Wahoo goes through the real compiler. A bot bumps a question block and each hit pops a token; the tokens grow into a syntax tree joined by pipes; the tree goes down a pipe and comes out as WebAssembly bytes; and the program runs.",
+      "phasesLabel": "Phases of the compiler",
+      "phase": { "lex": "Lexing", "parse": "Parsing", "check": "Checking", "gen": "Code generation", "run": "Running" },
+      "cap": {
+        "lex": "The real lexer cuts the text into {n} tokens: every hit on the block pops one.",
+        "parse": "The parser fits the tokens into a syntax tree of {n} nodes.",
+        "check": "The checker resolves every name and checks every type.",
+        "gen": "The code generator turns the tree into {n} bytes of WebAssembly.",
+        "run": "Your browser runs those bytes. Course clear!",
+        "error": "Game over: {msg}"
+      },
+      "pause": "Pause", "play": "Play", "next": "Next level", "yours": "YOUR LINE · level.wahoo",
+      "tryHint": "coin jump = 2 * 21", "gameOver": "GAME OVER", "clear": "COURSE CLEAR!"
+    },
     "core": { "error": "This figure could not start. Reload the page to try again." },
     "run": {
       "pit": "You fell into a pit: division by zero.",

@@ -1185,3 +1185,119 @@ table.compare td:first-child { font-weight: 700; color: var(--fg); white-space: 
 @media (max-width: 440px) {
   .site-nav > a.nav-playground { display: none; }
 }
+
+/* ------------------------------------------------------------------ title screen (home) */
+/* The home page is a single screen: the copy on the left and, behind it, a canvas where a line of Wahoo goes
+   through the real compiler as a tiny level (js/demos/splash.js). On narrow screens the canvas goes under the copy. */
+
+.splash {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: max(calc(100svh - 59px), 600px);
+  overflow: hidden;
+  font-family: var(--sans);
+  background: linear-gradient(var(--bg-soft), var(--bg));
+}
+.splash-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+.splash-copy {
+  position: relative;
+  z-index: 1;
+  width: min(46vw, 600px);
+  margin-left: max(28px, calc((100vw - 1320px) / 2));
+  padding-top: clamp(24px, 7vh, 80px);
+}
+.splash-title {
+  margin: 0 0 0.9rem;
+  font: 800 clamp(2.8rem, 6.2vw, 5rem)/0.98 var(--sans);
+  letter-spacing: -0.04em;
+  color: var(--fg);
+  text-shadow: 0 2px 0 color-mix(in srgb, var(--bg) 60%, transparent);
+}
+.splash-sub { display: block; margin-top: 0.12em; font-size: 0.56em; font-weight: 750; letter-spacing: -0.025em; }
+.splash-lead { margin: 0 0 0.4rem; font: 1.12rem/1.55 var(--serif); color: var(--text); max-width: 34rem; }
+.splash .cta-row { margin: 1.2rem 0 1rem; }
+.splash .cta { background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(6px); }
+.splash .cta.primary { background: var(--fg); }
+.splash-try { display: grid; gap: 6px; max-width: 30rem; font-size: 0.86rem; color: var(--muted); }
+.splash-try-row { display: flex; gap: 8px; }
+.splash-try input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  color: var(--fg);
+  font: 0.92rem var(--mono);
+}
+.splash-try input:focus { outline: 2px solid var(--block); outline-offset: 1px; }
+.splash-try .cta { padding: 8px 14px; cursor: pointer; font-family: var(--sans); }
+
+.splash-hud {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 10px max(20px, calc((100vw - 1320px) / 2));
+  color: #fff;
+  font-size: 0.8rem;
+}
+.splash-phases { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.splash-phases li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 5px;
+  border-radius: 999px;
+  background: rgba(16, 18, 24, 0.62);
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 650;
+  transition: background 0.2s, color 0.2s;
+}
+.splash-phases .n {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  font: 700 0.7rem/1 var(--mono);
+}
+.splash-phases li.done { color: #fff; }
+.splash-phases li.done .n { background: #2e8b57; }
+.splash-phases li[aria-current] { background: #f4b400; color: #2b1800; }
+.splash-phases li[aria-current] .n { background: #8a4b08; color: #fff; }
+.splash-phases li.bad { background: #c2412d; color: #fff; }
+.splash-caption { flex: 1 1 260px; margin: 0; padding: 4px 10px; border-radius: 6px; background: rgba(16, 18, 24, 0.62); }
+.splash-caption.bad { background: rgba(194, 65, 45, 0.85); }
+.splash-ctrls { display: flex; gap: 6px; }
+.splash-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  background: rgba(16, 18, 24, 0.62);
+  color: #fff;
+  font: 650 0.78rem var(--sans);
+  cursor: pointer;
+}
+.splash-btn:hover { background: rgba(16, 18, 24, 0.85); }
+
+.nav-start .ext { margin-left: 3px; font-size: 0.85em; }
+.chapters-menu li.menu-intro a { font-weight: 650; }
+
+@media (max-width: 899px) {
+  .splash { min-height: 0; }
+  .splash-copy { width: auto; margin: 0; padding: 28px 20px 8px; }
+  .splash-copy { order: 1; }
+  .splash-canvas { order: 2; position: relative; height: clamp(440px, 72svh, 560px); }
+  .splash-hud { order: 3; position: relative; padding: 10px 16px 14px; background: #1b1e23; }
+}
+@media (max-width: 760px) {
+  .site-nav > a.nav-start { display: none; }
+}

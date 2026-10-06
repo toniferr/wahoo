@@ -1,42 +1,12 @@
-<p class="kicker">Compilers and interpreters, from the Mushroom Kingdom</p>
-<h1 class="hero-title"><span class="hero-block" aria-hidden="true">?</span>Wahoo! How a compiler works</h1>
-<div class="coin-trail" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
-<p class="lead">Every program you have ever run started as text. Something had to turn that text into the electrical switching of a processor: a compiler, an interpreter, or, more often than you would think, a chain of both. This site follows that journey step by step with <strong>Wahoo</strong>, a tiny language from the Mushroom Kingdom whose real compiler runs in your browser.</p>
-
-<p class="cta-row"><a class="cta primary" href="@ch:execution">Start at the beginning →</a><a class="cta" href="@playground">Open the playground</a><a class="cta" href="@reference">Learn Wahoo in five minutes</a></p>
-
-<figure class="demo" data-demo="home/try">
-  <figcaption>A Wahoo program. <code>world 1-1</code> is where it starts, <code>coin</code> declares a variable, <code>run</code> is a counting loop, <code>power_up</code> adds to a counter, <code>question</code> is an <em>if</em> and <code>wahoo(...)</code> prints. Press Run: the text is lexed, parsed, type-checked, optimised and turned into WebAssembly by a compiler written in Rust, which is itself running here as WebAssembly.</figcaption>
-</figure>
-
-<h2>The journey in one picture</h2>
-
-<p>A compiler is a pipeline. Each stage takes the program in one shape and hands it to the next in a shape that is a little closer to the machine: characters become <em>tokens</em>, tokens become a <em>tree</em>, the tree gets <em>meaning</em> (names resolved, types checked), meaning becomes <em>instructions</em>, instructions get <em>faster</em>, and finally something <em>runs</em> them. The chapters follow that order:</p>
-
-<!--chain-->
-
-<h2>Compiled, interpreted… or both?</h2>
-
-<p>“Python is interpreted, C is compiled” is the kind of sentence that is half true. Python is compiled to bytecode before it runs; Java is compiled twice; JavaScript starts out interpreted and is recompiled to machine code while it runs; TypeScript is compiled into another programming language. <a href="@ch:execution">Chapter 00</a> takes a dozen real languages apart and shows where, in each of them, the text stops being text. The rest of the site builds one complete compiler, phase by phase, so that every word in those diagrams has a concrete, inspectable meaning.</p>
-
-<div class="compare-wrap"><table class="compare">
-  <thead><tr><th>Phase</th><th>Question it answers</th><th>In Wahoo's compiler</th><th>Where</th></tr></thead>
-  <tbody>
-    <tr><td>Lexing</td><td>Which words are in this text?</td><td><code>lexer.rs</code>: characters → tokens</td><td><a href="@ch:lexing">01</a></td></tr>
-    <tr><td>Parsing</td><td>How do the words fit together?</td><td><code>parser.rs</code>: tokens → syntax tree</td><td><a href="@ch:parsing">02</a></td></tr>
-    <tr><td>Semantic analysis</td><td>Does it make sense?</td><td><code>checker.rs</code>: scopes and types</td><td><a href="@ch:semantics">03</a></td></tr>
-    <tr><td>Code generation</td><td>What must the machine do?</td><td><code>codegen.rs</code>, <code>wasm.rs</code>: WebAssembly</td><td><a href="@ch:codegen">04</a></td></tr>
-    <tr><td>Optimisation</td><td>Can it do less?</td><td><code>optimizer.rs</code>: folding, dead code</td><td><a href="@ch:optimization">05</a></td></tr>
-    <tr><td>Execution</td><td>Who runs it, and how?</td><td>your browser's Wasm engine</td><td><a href="@ch:runtime">06</a></td></tr>
-  </tbody>
-</table></div>
-
-<h2>Why Mario?</h2>
-
-<p>Because a language you have never seen forces you to look at it the way a compiler does: as text with rules. In Wahoo, programs are played as <strong>worlds</strong> (1-1, then 1-2…), functions are <strong>pipes</strong> you go down and come back from with a value at the <strong>flag</strong>, whole numbers are <strong>coins</strong>, booleans are <strong>star</strong> and <strong>goomba</strong>, and a division by zero makes you fall into a pit. Underneath the costume it is a real, statically typed language with recursion, loops, scopes and a compiler with good error messages. The <a href="@reference">language page</a> has the whole of it on one screen.</p>
-
-<h2>How to read this site</h2>
-
-<p>In order, like a short book, or jump straight to the phase you are curious about: each chapter stands on its own. Every interactive figure uses the same compiler as the <a href="@playground">playground</a>, so whatever you type is processed for real, not simulated. The source of everything (compiler, command-line tool, this site) is on GitHub, small enough to read in an evening.</p>
-
-<p class="cta-row"><a class="cta primary" href="@ch:execution">Chapter 00: Compiled, interpreted, or both? →</a></p>
+<section class="splash" data-demo="splash/level" aria-labelledby="splash-title">
+  <canvas class="splash-canvas"></canvas>
+  <div class="splash-copy">
+    <h1 id="splash-title" class="splash-title"><span class="hero-block" aria-hidden="true">?</span>Wahoo! <span class="splash-sub">How a compiler works</span></h1>
+    <p class="splash-lead">A tiny language from the Mushroom Kingdom and its real compiler, running in your browser. Watch a line of code become tokens, a tree and WebAssembly, then take the journey chapter by chapter.</p>
+    <p class="cta-row"><a class="cta primary" href="@intro">Start the journey →</a><a class="cta" href="@playground">Open the playground</a><a class="cta" href="{repo}#getting-started">Get started <span aria-hidden="true">↗</span></a></p>
+    <div class="splash-try" hidden>
+      <label for="splash-line">Type a line of Wahoo and watch it compile</label>
+      <span class="splash-try-row"><input id="splash-line" type="text" maxlength="80" spellcheck="false" autocomplete="off" autocapitalize="off"><button type="button" class="cta">Play it ▶</button></span>
+    </div>
+  </div>
+</section>
